@@ -32,36 +32,92 @@ beta_bernoulli_hp(float alpha, float beta)
 }
 
 static void
-CheckDataview2DArray(
-    const bool *data,
-    const bool *mask,
-    size_t n,
-    size_t m,
-    const dataview &d)
+test1()
 {
-  // check each slice
-  for (size_t i = 0; i < n; i++) {
-    vector<bool> seen(m, false);
-    for (auto &p : d.slice(0, i)) {
-      MICROSCOPES_DCHECK(p.first[0] == i, "not a valid slice");
-      MICROSCOPES_DCHECK(p.first[1] < m, "out of bounds");
-      const size_t idx = i*m + p.first[1];
-      const bool value = p.second.get<bool>(0);
-      MICROSCOPES_DCHECK(data[idx] == value, "values don't match");
-      MICROSCOPES_DCHECK(!mask[idx], "data is masked");
-      seen[p.first[1]] = true;
+  rng_t r(543);
 
-      //cout << p.first << " : " << p.second.debug_str() << endl;
-    }
-    for (size_t j = 0; j < seen.size(); j++) {
-      if (seen[j])
-        continue;
-      const size_t idx = i*m + j;
-      //if (!mask[idx])
-      //  cout << "should have seen (" << i << ", " << j << ")" << endl;
-      MICROSCOPES_DCHECK(mask[idx], "data is not masked");
+  // 1 domain
+  const vector<size_t> domains({10});
+
+  // CRP priors
+  const vector<float> domain_alphas({2.0});
+
+  // 1 binary relation
+  const vector<state::relation_t> relations({
+      state::relation_t({0, 0}, distributions_factory<BetaBernoulli>().new_instance())
+  });
+
+  const vector<hyperparam_bag_t> relation_hps({
+      beta_bernoulli_hp(2.0, 2.0)
+  });
+
+  state s(domains, relations);
+  for (size_t i = 0; i < domain_alphas.size(); i++) {
+    state::message_type hp;
+    hp.set_alpha(domain_alphas[i]);
+    s.set_domain_hp(i, protobuf_to_string(hp));
+  }
+
+  for (size_t i = 0; i < relation_hps.size(); i++)
+    s.set_relation_hp(i, relation_hps[i]);
+
+  // create fake, absolutely meaningless data for our relation
+
+  bool *friends = new bool[domains[0]*domains[0]];
+  bool *masks = new bool[domains[0]*domains[0]];
+
+  size_t present = 0;
+  for (size_t u = 0; u < domains[0]; u++) {
+    for (size_t m = 0; m < domains[0]; m++) {
+      const size_t idx = u*domains[0] + m;
+      // coin flip to see if this data is present
+      if (bernoulli_distribution(0.2)(r)) {
+        masks[idx] = false;
+        // coin flip to see if friends
+        friends[idx] = bernoulli_distribution(0.8)(r);
+        present++;
+      } else {
+        masks[idx] = true;
+      }
     }
   }
+
+  cout << "present: " << present << endl;
+
+  const dataview *view =
+    new row_major_dense_dataview(
+        reinterpret_cast<uint8_t*>(friends), masks,
+        {domains[0], domains[0]}, runtime_type(TYPE_B));
+
+  s.create_group(0);
+  s.create_group(0);
+  s.create_group(0);
+
+  // assignments
+  for (size_t m = 0; m < domains[0]; m++) {
+    size_t gid;
+    if (m < domains[0]/3)
+      gid = 0;
+    else if (m < (2*domains[0])/3)
+      gid = 1;
+    else
+      gid = 2;
+    s.assign_value(0, gid, m);
+  }
+
+  s.add_initial_values({view}, r);
+
+  // peek @ suffstats
+  size_t sum = 0;
+  for (const auto &p : s.get_suff_stats(0)) {
+    cout << p.first << " : " << p.second.count_ << endl;
+    sum += p.second.count_;
+  }
+
+  const size_t gid = s.remove_value(0, 0, {view}, r);
+  s.add_value(0, gid, 0, {view}, r);
+
+  MICROSCOPES_DCHECK(sum == present, "suff stats don't match up");
 }
 
 int
@@ -69,6 +125,8 @@ main(void)
 {
   //random_device rd;
   //rng_t r(rd());
+
+  test1();
 
   rng_t r(34);
 
@@ -134,9 +192,6 @@ main(void)
   for (auto &p : view->slice(0, 1)) {
     cout << p.first << " => " << p.second.debug_str() << endl;
   }
-
-  CheckDataview2DArray(likes, masks, domains[0], domains[1], *view);
-
 
   // create groups for initial assignment; 2 user groups, 3 movie groups
   s.create_group(0);

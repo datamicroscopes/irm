@@ -1,4 +1,5 @@
 #include <microscopes/irm/model.hpp>
+#include <microscopes/common/util.hpp>
 #include <distributions/special.hpp>
 
 using namespace std;
@@ -30,6 +31,40 @@ state::state(const vector<size_t> &domains,
 }
 
 void
+state::add_initial_values(const dataset_t &d, rng_t &rng)
+{
+  MICROSCOPES_DCHECK(d.size() == relations_.size(), "not presented with the relations");
+  for (size_t i = 0; i < relations_.size(); i++) {
+    auto &relation = relations_[i];
+    MICROSCOPES_DCHECK(relation.second.empty(), "data already present");
+    for (const auto &p : *d[i]) {
+      vector<size_t> groups;
+      groups.reserve(relation.first.domains_.size());
+      for (size_t i = 0; i < relation.first.domains_.size(); i++) {
+        MICROSCOPES_DCHECK(domains_[relation.first.domains_[i]].assignments()[p.first[i]] != -1, "unassigned");
+        groups.push_back(domains_[relation.first.domains_[i]].assignments()[p.first[i]]);
+      }
+      shared_ptr<feature_group> group;
+      auto it = relation.second.find(groups);
+      if (it == relation.second.end()) {
+        group = relation.first.model_->create_feature_group(rng);
+        auto &g = relation.second[groups];
+        g.count_ = 1;
+        g.group_ = group;
+      } else {
+        MICROSCOPES_ASSERT(it->second.count_);
+        it->second.count_++;
+        group = it->second.group_;
+      }
+      MICROSCOPES_ASSERT(group);
+      group->add_value(*relation.first.model_, p.second, rng);
+    }
+  }
+}
+
+// XXX: all the *_value methods have too much code duplication
+
+void
 state::add_value(size_t domain, size_t gid, size_t eid, const dataset_t &d, rng_t &rng)
 {
   MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain");
@@ -37,7 +72,11 @@ state::add_value(size_t domain, size_t gid, size_t eid, const dataset_t &d, rng_
   MICROSCOPES_DCHECK(eid < domains_[domain].nentities(), "invalid eid");
   MICROSCOPES_DCHECK(d.size() == relations_.size(), "not presented with the relations");
 
+  cout << "add_value(domain=" << domain << ", gid=" << gid << ", eid=" << eid << ")" << endl;
+
   for (const auto &dr : domain_relations_[domain]) {
+    cout << "  dr: " << dr << endl;
+
     auto &relation = relations_[dr.first];
     auto &data = d[dr.first];
 
@@ -48,8 +87,28 @@ state::add_value(size_t domain, size_t gid, size_t eid, const dataset_t &d, rng_
     MICROSCOPES_DCHECK(expected_shape == data->shape(), "improper relation shape given");
 #endif
 
+    vector<size_t> ignore_idxs;
+    for (size_t i = 0; i < dr.second; i++)
+      if (relation.first.domains_[i] == domain)
+        ignore_idxs.push_back(i);
+
+    cout << "  ignore_idxs: " << ignore_idxs << endl;
+
     vector<size_t> groups;
     for (const auto &p : data->slice(dr.second, eid)) {
+      cout << "  processing: " << p.first << endl;
+
+      // don't double count
+      bool skip = false;
+      for (auto idx : ignore_idxs)
+        if (p.first[idx] == eid) {
+          cout << "    ** skipped" << endl;
+          skip = true;
+          break;
+        }
+      if (skip)
+        continue;
+
       groups.clear();
       for (size_t i = 0; i < relation.first.domains_.size(); i++) {
         if (relation.first.domains_[i] == domain && p.first[i] == eid)
@@ -97,8 +156,23 @@ state::remove_value(size_t domain, size_t eid, const dataset_t &d, rng_t &rng)
     MICROSCOPES_DCHECK(expected_shape == data->shape(), "improper relation shape given");
 #endif
 
+    vector<size_t> ignore_idxs;
+    for (size_t i = 0; i < dr.second; i++)
+      if (relation.first.domains_[i] == domain)
+        ignore_idxs.push_back(i);
+
     vector<size_t> groups;
     for (const auto &p : data->slice(dr.second, eid)) {
+      // don't double count
+      bool skip = false;
+      for (auto idx : ignore_idxs)
+        if (p.first[idx] == eid) {
+          skip = true;
+          break;
+        }
+      if (skip)
+        continue;
+
       groups.clear();
       for (size_t i = 0; i < relation.first.domains_.size(); i++) {
         MICROSCOPES_DCHECK(domains_[relation.first.domains_[i]].assignments()[p.first[i]] != -1, "unassigned");
@@ -145,8 +219,24 @@ state::score_value(size_t did, size_t eid, const dataset_t &d, rng_t &rng) const
       MICROSCOPES_DCHECK(expected_shape == data->shape(), "improper relation shape given");
 #endif
 
+      vector<size_t> ignore_idxs;
+      for (size_t i = 0; i < dr.second; i++)
+        if (relation.first.domains_[i] == did)
+          ignore_idxs.push_back(i);
+
       vector<size_t> groups;
       for (const auto &p : data->slice(dr.second, eid)) {
+
+        // don't double count
+        bool skip = false;
+        for (auto idx : ignore_idxs)
+          if (p.first[idx] == eid) {
+            skip = true;
+            break;
+          }
+        if (skip)
+          continue;
+
         groups.clear();
         for (size_t i = 0; i < relation.first.domains_.size(); i++) {
           if (relation.first.domains_[i] == did && p.first[i] == eid)

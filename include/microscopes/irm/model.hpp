@@ -198,36 +198,42 @@ public:
   inline common::hyperparam_bag_t
   get_domain_hp(size_t domain) const
   {
+    MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain id");
     return domains_[domain].get_hp();
   }
 
   inline void
   set_domain_hp(size_t domain, const common::hyperparam_bag_t &hp)
   {
+    MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain id");
     domains_[domain].set_hp(hp);
   }
 
   inline common::hyperparam_bag_t
   get_relation_hp(size_t relation) const
   {
+    MICROSCOPES_DCHECK(relation < relations_.size(), "invalid relation id");
     return relations_[relation].first.model_->get_hp();
   }
 
   inline void
   set_relation_hp(size_t relation, const common::hyperparam_bag_t &hp)
   {
+    MICROSCOPES_DCHECK(relation < relations_.size(), "invalid relation id");
     relations_[relation].first.model_->set_hp(hp);
   }
 
   inline size_t
   create_group(size_t domain)
   {
+    MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain id");
     return domains_[domain].create_group();
   }
 
   inline void
   delete_group(size_t domain, size_t gid)
   {
+    MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain id");
     domains_[domain].delete_group(gid);
   }
 
@@ -236,8 +242,18 @@ public:
   inline void
   assign_value(size_t domain, size_t gid, size_t eid)
   {
+    MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain id");
     domains_[domain].add_value(gid, eid);
   }
+
+  inline void
+  unassign_value(size_t domain, size_t eid)
+  {
+    MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain id");
+    domains_[domain].remove_value(eid);
+  }
+
+  void add_initial_values(const dataset_t &d, common::rng_t &rng);
 
   void add_value(size_t domain, size_t gid, size_t eid, const dataset_t &d, common::rng_t &rng);
   size_t remove_value(size_t domain, size_t eid, const dataset_t &d, common::rng_t &rng);
@@ -259,11 +275,11 @@ private:
   domain_relations(size_t d) const
   {
     std::vector<std::pair<size_t, size_t>> ret;
-    for (size_t i = 0; i < relations_.size(); i++) {
-      const auto &ds = relations_[i].first.domains_;
-      const auto it = std::find(ds.begin(), ds.end(), d);
-      if (it != ds.end())
-        ret.emplace_back(i, (it - ds.begin()));
+    for (size_t r = 0; r < relations_.size(); r++) {
+      const auto &ds = relations_[r].first.domains_;
+      for (size_t pos = 0; pos < ds.size(); pos++)
+        if (ds[pos] == d)
+          ret.emplace_back(r, pos);
     }
     return ret;
   }
