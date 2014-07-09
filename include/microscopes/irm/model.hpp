@@ -20,11 +20,16 @@
 namespace microscopes {
 namespace irm {
 
+class state; // forward decl
+
+namespace detail {
+
 /**
  * XXX: we are duplicating the group management code found in
  * microscopes::mixture::model::state. abstract that away
  */
 class domain {
+  friend class irm::state;
 public:
   typedef io::CRP message_type;
 
@@ -153,7 +158,7 @@ public:
     return gid;
   }
 
-private:
+protected:
   float alpha_;
   size_t gcount_;
   std::set<size_t> gempty_;
@@ -161,12 +166,14 @@ private:
   std::map<size_t, size_t> groups_;
 };
 
-typedef std::vector<std::shared_ptr<common::sparse_ndarray::dataview>> dataset_t;
+} // namespace detail
+
+typedef std::vector<const common::sparse_ndarray::dataview *> dataset_t;
 
 class state {
 public:
 
-  typedef domain::message_type message_type;
+  typedef detail::domain::message_type message_type;
 
   typedef std::vector<size_t> tuple_t;
 
@@ -236,7 +243,7 @@ public:
   size_t remove_value(size_t domain, size_t eid, const dataset_t &d, common::rng_t &rng);
 
   std::pair<std::vector<size_t>, std::vector<float>>
-  score_value(size_t domain, size_t eid, const dataset_t &d, common::rng_t &rng);
+  score_value(size_t domain, size_t eid, const dataset_t &d, common::rng_t &rng) const;
 
   inline const std::map<tuple_t, group_with_count_t> &
   get_suff_stats(size_t relation) const
@@ -261,14 +268,12 @@ private:
     return ret;
   }
 
-  std::vector<domain> domains_;
+  std::vector<detail::domain> domains_;
   std::vector<std::vector<std::pair<size_t, size_t>>> domain_relations_;
 
   std::vector<
     std::pair<relation_t, std::map<tuple_t, group_with_count_t>>
   > relations_;
-
-  float running_score_;
 };
 
 } // namespace irm

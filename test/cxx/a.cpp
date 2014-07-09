@@ -121,8 +121,13 @@ main(void)
   cout << "present: " << present << endl;
 
   // create the dataview
-  shared_ptr<dataview> view =
-    make_shared<row_major_dense_dataview>(
+  //shared_ptr<dataview> view =
+  //  make_shared<row_major_dense_dataview>(
+  //      reinterpret_cast<uint8_t*>(likes), masks,
+  //      domains, runtime_type(TYPE_B));
+
+  const dataview *view =
+    new row_major_dense_dataview(
         reinterpret_cast<uint8_t*>(likes), masks,
         domains, runtime_type(TYPE_B));
 
@@ -131,7 +136,6 @@ main(void)
   }
 
   CheckDataview2DArray(likes, masks, domains[0], domains[1], *view);
-
 
 
   // create groups for initial assignment; 2 user groups, 3 movie groups
@@ -169,6 +173,13 @@ main(void)
     cout << p.first << " : " << p.second.count_ << endl;
   }
 
+  // score the 1st data point
+  s.remove_value(0, 0, {view}, r);
+  s.create_group(0);
+  const auto scores = s.score_value(0, 0, {view}, r);
+  cout << "scores: " << scores << endl;
+  s.add_value(0, 0, 0, {view}, r);
+
   // remove the data
   for (size_t u = 0; u < domains[0]; u++) {
     s.remove_value(0, u, {view}, r);
@@ -182,5 +193,6 @@ main(void)
 
   delete [] likes;
   delete [] masks;
+  delete view;
   return 0;
 }
