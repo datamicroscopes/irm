@@ -18,5 +18,17 @@ cdef class state:
 
         self._thisptr.reset(new c_state(cdomains, crelations))
 
-def bind(state s, abstract_dataview view):
-    pass
+    def models(self):
+        return [m for _, m in self._relations]
+
+def bind(state s, int domain, relations):
+    cdef shared_ptr[c_entity_based_state_object] px
+    cdef vector[shared_ptr[c_dataview]] crelations
+    for reln in relations:
+        if not isinstance(reln, abstract_dataview):
+            raise ValueError("bad relation given: " + repr(reln))
+        crelations.push_back((<abstract_dataview>reln)._thisptr)
+    px.reset(new c_bound_state(s._thisptr, domain, crelations))
+    cdef entity_based_state_object ret = entity_based_state_object(s.models())
+    ret.set_entity(px)
+    return ret

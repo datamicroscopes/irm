@@ -16,4 +16,4 @@ cdef extern from "microscopes/irm/model.hpp" namespace "microscopes::irm":
     cdef cppclass bound_state(entity_based_state_object):
         bound_state(const shared_ptr[state] &,
                     size_t,
-                    const shared_ptr[dataview] &) except +
+                    const vector[shared_ptr[dataview]] &) except +
