@@ -34,7 +34,8 @@ beta_bernoulli_hp(float alpha, float beta)
 static void
 test1()
 {
-  rng_t r(543);
+  random_device rd;
+  rng_t r(rd());
 
   // 1 domain
   const vector<size_t> domains({10});
@@ -109,9 +110,8 @@ test1()
 static void
 test2()
 {
-
-  /**
-  rng_t r(34);
+  random_device rd;
+  rng_t r(rd());
 
   // 10 users, 100 movies
   const vector<size_t> domains({10, 100});
@@ -161,79 +161,37 @@ test2()
 
   cout << "present: " << present << endl;
 
-  // create the dataview
-  //shared_ptr<dataview> view =
-  //  make_shared<row_major_dense_dataview>(
-  //      reinterpret_cast<uint8_t*>(likes), masks,
-  //      domains, runtime_type(TYPE_B));
-
-  const dataview *view =
+  unique_ptr<dataview> view(
     new row_major_dense_dataview(
         reinterpret_cast<uint8_t*>(likes), masks,
-        domains, runtime_type(TYPE_B));
+        domains, runtime_type(TYPE_B)));
 
-  for (auto &p : view->slice(0, 1)) {
-    cout << p.first << " => " << p.second.debug_str() << endl;
-  }
+  s.random_initialize({view.get()}, r);
 
-  // create groups for initial assignment; 2 user groups, 3 movie groups
-  s.create_group(0);
-  s.create_group(0);
-
-  s.create_group(1);
-  s.create_group(1);
-  s.create_group(1);
-
-  // bootstrap the movies first
-  for (size_t m = 0; m < domains[1]; m++) {
-    size_t gid;
-    if (m < domains[1]/3)
-      gid = 0;
-    else if (m < (2*domains[1])/3)
-      gid = 1;
-    else
-      gid = 2;
-    s.assign_value(1, gid, m);
-  }
-
-  // now add the data
-  for (size_t u = 0; u < domains[0]; u++) {
-    size_t gid;
-    if (u < domains[0]/2)
-      gid = 0;
-    else
-      gid = 1;
-    s.add_value(0, gid, u, {view}, r);
-  }
-
-  // peek @ suffstats
-  for (const auto &p : s.get_suff_stats(0)) {
-    cout << p.first << " : " << p.second.count_ << endl;
-  }
+  size_t sum = 0;
+  for (auto ident : s.suffstats_identifiers(0))
+    sum += s.get_suffstats_count(0, ident);
+  MICROSCOPES_DCHECK(sum == present, "suff stats don't match up");
 
   // score the 1st data point
-  s.remove_value(0, 0, {view}, r);
+  const size_t gid = s.remove_value(0, 0, {view.get()}, r);
   s.create_group(0);
-  const auto scores = s.score_value(0, 0, {view}, r);
-  cout << "scores: " << scores << endl;
-  s.add_value(0, 0, 0, {view}, r);
+  const auto scores = s.score_value(0, 0, {view.get()}, r);
+  //cout << "scores: " << scores << endl;
+  s.add_value(0, gid, 0, {view.get()}, r);
 
   // remove the data
-  for (size_t u = 0; u < domains[0]; u++) {
-    s.remove_value(0, u, {view}, r);
-  }
+  for (size_t u = 0; u < domains[0]; u++)
+    s.remove_value(0, u, {view.get()}, r);
 
   // peek @ suffstats
-  cout << "--" << endl;
-  for (const auto &p : s.get_suff_stats(0)) {
-    cout << p.first << " : " << p.second.count_ << endl;
-  }
+  sum = 0;
+  for (auto ident : s.suffstats_identifiers(0))
+    sum += s.get_suffstats_count(0, ident);
+  MICROSCOPES_DCHECK(!sum, "suff stats don't match up");
 
   delete [] likes;
   delete [] masks;
-  delete view;
-
-  **/
 }
 
 int
