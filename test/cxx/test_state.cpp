@@ -84,50 +84,33 @@ test1()
 
   cout << "present: " << present << endl;
 
-  const dataview *view =
+  unique_ptr<dataview> view(
     new row_major_dense_dataview(
         reinterpret_cast<uint8_t*>(friends), masks,
-        {domains[0], domains[0]}, runtime_type(TYPE_B));
+        {domains[0], domains[0]}, runtime_type(TYPE_B)));
 
-  s.create_group(0);
-  s.create_group(0);
-  s.create_group(0);
-
-  // assignments
-  for (size_t m = 0; m < domains[0]; m++) {
-    size_t gid;
-    if (m < domains[0]/3)
-      gid = 0;
-    else if (m < (2*domains[0])/3)
-      gid = 1;
-    else
-      gid = 2;
-    s.assign_value(0, gid, m);
-  }
-
-  s.add_initial_values({view}, r);
+  s.random_initialize({view.get()}, r);
 
   // peek @ suffstats
   size_t sum = 0;
-  for (const auto &p : s.get_suff_stats(0)) {
-    cout << p.first << " : " << p.second.count_ << endl;
-    sum += p.second.count_;
-  }
+  for (auto ident : s.suffstats_identifiers(0))
+    sum += s.get_suffstats_count(0, ident);
+  MICROSCOPES_DCHECK(sum == present, "suff stats don't match up");
 
-  const size_t gid = s.remove_value(0, 0, {view}, r);
-  s.add_value(0, gid, 0, {view}, r);
+  const size_t gid = s.remove_value(0, 0, {view.get()}, r);
+  s.add_value(0, gid, 0, {view.get()}, r);
 
+  sum = 0;
+  for (auto ident : s.suffstats_identifiers(0))
+    sum += s.get_suffstats_count(0, ident);
   MICROSCOPES_DCHECK(sum == present, "suff stats don't match up");
 }
 
-int
-main(void)
+static void
+test2()
 {
-  //random_device rd;
-  //rng_t r(rd());
 
-  test1();
-
+  /**
   rng_t r(34);
 
   // 10 users, 100 movies
@@ -249,5 +232,14 @@ main(void)
   delete [] likes;
   delete [] masks;
   delete view;
+
+  **/
+}
+
+int
+main(void)
+{
+  test1();
+  test2();
   return 0;
 }

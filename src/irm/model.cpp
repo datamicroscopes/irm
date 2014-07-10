@@ -2,6 +2,8 @@
 #include <microscopes/common/util.hpp>
 #include <distributions/special.hpp>
 
+#include <algorithm>
+
 using namespace std;
 using namespace distributions;
 using namespace microscopes::common;
@@ -57,9 +59,26 @@ state::state(const vector<size_t> &domains,
 void
 state::random_initialize(const dataset_t &d, rng_t &rng)
 {
-  // XXX: generate initial assignments
+  for (auto &d : domains_)
+    for (auto i : d.assignments()) {
+      MICROSCOPES_DCHECK(i == -1, "not an uninitialized state object");
+      MICROSCOPES_DCHECK(d.ngroups() == 0, "found groups");
+    }
 
   MICROSCOPES_DCHECK(is_correct_shape(d), "not presented with the relations");
+
+  for (auto &d : domains_) {
+    // create min(100, n/2) + 1 groups
+    const size_t ngroups = min(size_t(100), d.nentities()) + 1;
+    for (size_t i = 0; i < ngroups; i++)
+      d.create_group();
+    const auto groups = d.groups();
+    for (size_t i = 0; i < d.nentities(); i++) {
+      const auto choice = util::sample_choice(groups, rng);
+      d.add_value(choice, i);
+    }
+  }
+
   for (size_t i = 0; i < relations_.size(); i++) {
     auto &relation = relations_[i];
     MICROSCOPES_DCHECK(

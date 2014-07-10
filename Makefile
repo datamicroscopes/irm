@@ -41,13 +41,13 @@ ifeq ($(UNAME_S),Linux)
 	TARGETS := $(O)/libmicroscopes_irm.so
 	LIBPATH_VARNAME := LD_LIBRARY_PATH
 	EXTNAME := so
-	SHARED_FLAG := -shared
+	SOFLAGS := -shared
 endif
 ifeq ($(UNAME_S),Darwin)
 	TARGETS := $(O)/libmicroscopes_irm.dylib
 	LIBPATH_VARNAME := DYLD_LIBRARY_PATH
 	EXTNAME := dylib
-	SHARED_FLAG := -dynamiclib
+	SOFLAGS := -dynamiclib -install_name $(TOP)/$(O)/libmicroscopes_irm.$(EXTNAME)
 endif
 
 all: $(TARGETS)
@@ -60,7 +60,7 @@ $(O)/%.o: src/%.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(O)/libmicroscopes_irm.$(EXTNAME): $(OBJFILES)
-	$(CXX) $(SHARED_FLAG) -o $@ $(OBJFILES) $(LDFLAGS)
+	$(CXX) -o $@ $(OBJFILES) $(LDFLAGS) $(SOFLAGS)
 
 %.prog: %.cpp $(O)/libmicroscopes_irm.$(EXTNAME)
 	$(CXX) $(CXXFLAGS) $< -o $@ $(TESTPROG_LDFLAGS)

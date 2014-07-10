@@ -300,40 +300,25 @@ public:
   inline common::suffstats_bag_t
   get_suffstats(size_t relation, common::ident_t id) const
   {
-    MICROSCOPES_DCHECK(relation < relations_.size(), "invalid relation id");
-    const auto &rel = relations_[relation];
-    const auto &tab = rel.ident_table_;
-    const auto it = tab.find(id);
-    MICROSCOPES_DCHECK(it != tab.end(), "invalid ident");
-    const auto it1 = rel.suffstats_table_.find(it->second);
-    MICROSCOPES_ASSERT(it1 != rel.suffstats_table_.end());
-    return it1->second.ss_->get_ss();
+    return get_suffstats_t(relation, id).ss_->get_ss();
   }
 
   inline void
   set_suffstats(size_t relation, common::ident_t id, const common::suffstats_bag_t &ss)
   {
-    MICROSCOPES_DCHECK(relation < relations_.size(), "invalid relation id");
-    const auto &rel = relations_[relation];
-    const auto &tab = rel.ident_table_;
-    const auto it = tab.find(id);
-    MICROSCOPES_DCHECK(it != tab.end(), "invalid ident");
-    const auto it1 = rel.suffstats_table_.find(it->second);
-    MICROSCOPES_ASSERT(it1 != rel.suffstats_table_.end());
-    it1->second.ss_->set_ss(ss);
+    get_suffstats_t(relation, id).ss_->set_ss(ss);
   }
 
   inline common::value_mutator
   get_suffstats_mutator(size_t relation, common::ident_t id, const std::string &key)
   {
-    MICROSCOPES_DCHECK(relation < relations_.size(), "invalid relation id");
-    const auto &rel = relations_[relation];
-    const auto &tab = rel.ident_table_;
-    const auto it = tab.find(id);
-    MICROSCOPES_DCHECK(it != tab.end(), "invalid ident");
-    const auto it1 = rel.suffstats_table_.find(it->second);
-    MICROSCOPES_ASSERT(it1 != rel.suffstats_table_.end());
-    return it1->second.ss_->get_ss_mutator(key);
+    return get_suffstats_t(relation, id).ss_->get_ss_mutator(key);
+  }
+
+  inline size_t
+  get_suffstats_count(size_t relation, common::ident_t id) const
+  {
+    return get_suffstats_t(relation, id).count_;
   }
 
   inline size_t
@@ -350,22 +335,6 @@ public:
     domains_[domain].delete_group(gid);
   }
 
-  //// assigns a value to a group w/o associating it with any particular piece of
-  //// data; should only be invoked during bootstrapping phases
-  //inline void
-  //assign_value(size_t domain, size_t gid, size_t eid)
-  //{
-  //  MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain id");
-  //  domains_[domain].add_value(gid, eid);
-  //}
-
-  //inline void
-  //unassign_value(size_t domain, size_t eid)
-  //{
-  //  MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain id");
-  //  domains_[domain].remove_value(eid);
-  //}
-
   void random_initialize(const dataset_t &d, common::rng_t &rng);
 
   void add_value(size_t domain, size_t gid, size_t eid, const dataset_t &d, common::rng_t &rng);
@@ -381,12 +350,6 @@ public:
     return domains_[domain].score_assignment();
   }
 
-  //inline const std::map<tuple_t, group_with_count_t> &
-  //get_suff_stats(size_t relation) const
-  //{
-  //  return relations_[relation].second;
-  //}
-
   // XXX: implement me
   inline bool is_correct_shape(const dataset_t &d) const { return true; }
 
@@ -398,6 +361,42 @@ private:
     size_t rel_;
     size_t pos_;
   };
+
+  struct suffstats_t {
+    suffstats_t() : ident_(), count_(), ss_() {}
+    common::ident_t ident_; // an identifier for outside naming
+    unsigned count_; // a ref count, so we know when to remove
+    std::shared_ptr<models::feature_group> ss_;
+  };
+
+  struct relation_container_t {
+    relation_container_t() : desc_(), suffstats_table_(), ident_table_(), ident_gen_() {}
+    relation_container_t(const relation_t &desc)
+      : desc_(desc), suffstats_table_(), ident_table_(), ident_gen_() {}
+    relation_t desc_;
+    std::map<tuple_t, suffstats_t> suffstats_table_;
+    std::map<common::ident_t, tuple_t> ident_table_;
+    common::ident_t ident_gen_;
+  };
+
+  inline suffstats_t &
+  get_suffstats_t(size_t relation, common::ident_t id)
+  {
+    MICROSCOPES_DCHECK(relation < relations_.size(), "invalid relation id");
+    auto &rel = relations_[relation];
+    auto &tab = rel.ident_table_;
+    auto it = tab.find(id);
+    MICROSCOPES_DCHECK(it != tab.end(), "invalid ident");
+    auto it1 = rel.suffstats_table_.find(it->second);
+    MICROSCOPES_ASSERT(it1 != rel.suffstats_table_.end());
+    return it1->second;
+  }
+
+  inline const suffstats_t &
+  get_suffstats_t(size_t relation, common::ident_t id) const
+  {
+    return const_cast<state *>(this)->get_suffstats_t(relation, id);
+  }
 
   // for the given domain, return a list of (relation, position) pairs
   // for each relation it is a part of
@@ -415,26 +414,7 @@ private:
   }
 
   std::vector<detail::domain> domains_;
-
   std::vector<std::vector<rel_pos_t>> domain_relations_;
-
-  struct suffstat_t {
-    suffstat_t() : ident_(), count_(), ss_() {}
-    common::ident_t ident_; // an identifier for outside naming
-    unsigned count_; // a ref count, so we know when to remove
-    std::shared_ptr<models::feature_group> ss_;
-  };
-
-  struct relation_container_t {
-    relation_container_t() : desc_(), suffstats_table_(), ident_table_(), ident_gen_() {}
-    relation_container_t(const relation_t &desc)
-      : desc_(desc), suffstats_table_(), ident_table_(), ident_gen_() {}
-    relation_t desc_;
-    std::map<tuple_t, suffstat_t> suffstats_table_;
-    std::map<common::ident_t, tuple_t> ident_table_;
-    common::ident_t ident_gen_;
-  };
-
   std::vector<relation_container_t> relations_;
 };
 
