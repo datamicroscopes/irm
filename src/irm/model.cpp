@@ -303,3 +303,21 @@ state::score_value(size_t did, size_t eid, const dataset_t &d, rng_t &rng) const
     s -= lgnorm;
   return ret;
 }
+
+float
+state::score_likelihood(size_t relation, ident_t id, rng_t &rng) const
+{
+  auto &ss = get_suffstats_t(relation, id);
+  return ss.ss_->score_data(*relations_[relation].desc_.model_, rng);
+}
+
+float
+state::score_likelihood(size_t relation, rng_t &rng) const
+{
+  MICROSCOPES_DCHECK(relation < relations_.size(), "invalid relation id");
+  float score = 0.;
+  auto &m = relations_[relation].desc_.model_;
+  for (auto &p : relations_[relation].suffstats_table_)
+    score += p.second.ss_->score_data(*m, rng);
+  return score;
+}

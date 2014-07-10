@@ -350,6 +350,10 @@ public:
     return domains_[domain].score_assignment();
   }
 
+  float score_likelihood(size_t relation, common::ident_t id, common::rng_t &rng) const;
+
+  float score_likelihood(size_t relation, common::rng_t &rng) const;
+
   // XXX: implement me
   inline bool is_correct_shape(const dataset_t &d) const { return true; }
 
@@ -502,13 +506,13 @@ public:
   float
   score_likelihood(size_t component, common::ident_t id, common::rng_t &rng) const override
   {
-    throw std::runtime_error("not implemented");
+    return impl_->score_likelihood(component, id, rng);
   }
 
   float
   score_likelihood(size_t component, common::rng_t &rng) const override
   {
-    throw std::runtime_error("not implemented");
+    return impl_->score_likelihood(component, rng);
   }
 
   size_t create_group(common::rng_t &rng) override { return impl_->create_group(domain_); }
