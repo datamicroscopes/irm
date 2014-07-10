@@ -161,6 +161,15 @@ public:
 
   float score_assignment() const;
 
+  void
+  reset()
+  {
+    gcount_ = 0;
+    gempty_.clear();
+    assignments_.assign(assignments_.size(), -1);
+    groups_.clear();
+  }
+
 protected:
   float alpha_;
   size_t gcount_;
@@ -336,6 +345,7 @@ public:
   }
 
   void random_initialize(const dataset_t &d, common::rng_t &rng);
+  void initialize(const std::vector< std::vector<std::set<size_t>> > &clusters, const dataset_t &d, common::rng_t &rng);
 
   void add_value(size_t domain, size_t gid, size_t eid, const dataset_t &d, common::rng_t &rng);
   size_t remove_value(size_t domain, size_t eid, const dataset_t &d, common::rng_t &rng);
@@ -350,14 +360,33 @@ public:
     return domains_[domain].score_assignment();
   }
 
+  inline float
+  score_assignment() const
+  {
+    float score = 0.;
+    for (auto &d : domains_)
+      score += d.score_assignment();
+    return score;
+  }
+
   float score_likelihood(size_t relation, common::ident_t id, common::rng_t &rng) const;
 
   float score_likelihood(size_t relation, common::rng_t &rng) const;
+
+  inline float
+  score_likelihood(common::rng_t &rng) const
+  {
+    float score = 0.;
+    for (size_t i = 0; i < relations_.size(); i++)
+      score += score_likelihood(i, rng);
+    return score;
+  }
 
   // XXX: implement me
   inline bool is_correct_shape(const dataset_t &d) const { return true; }
 
 private:
+  void reset();
 
   struct rel_pos_t {
     rel_pos_t() : rel_(), pos_() {}

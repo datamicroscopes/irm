@@ -56,35 +56,39 @@ state::state(const vector<size_t> &domains,
     domain_relations_.emplace_back(domain_relations(i));
 }
 
-void
-state::random_initialize(const dataset_t &d, rng_t &rng)
+static inline void
+AssertAllEntitiesAccounted(const vector<set<size_t>> &c, size_t n)
 {
-  for (auto &d : domains_)
-    for (auto i : d.assignments()) {
-      MICROSCOPES_DCHECK(i == -1, "not an uninitialized state object");
-      MICROSCOPES_DCHECK(d.ngroups() == 0, "found groups");
+  vector<bool> ents(n, false);
+  for (const auto &s : c)
+    for (auto eid : s) {
+      MICROSCOPES_DCHECK(eid < ents.size(), "bad eid given");
+      MICROSCOPES_DCHECK(!ents[eid], "eid given twice");
+      ents[eid] = true;
     }
+  for (auto b : ents)
+    MICROSCOPES_DCHECK(b, "ent unaccounted for");
+}
 
-  MICROSCOPES_DCHECK(is_correct_shape(d), "not presented with the relations");
+void
+state::initialize(const vector<vector<set<size_t>>> &clusters, const dataset_t &d, rng_t &rng)
+{
+  MICROSCOPES_DCHECK(clusters.size() == domains_.size(), "invalid number of clusterings");
+  reset();
 
-  for (auto &d : domains_) {
-    // create min(100, n/2) + 1 groups
-    const size_t ngroups = min(size_t(100), d.nentities()) + 1;
-    for (size_t i = 0; i < ngroups; i++)
-      d.create_group();
-    const auto groups = d.groups();
-    for (size_t i = 0; i < d.nentities(); i++) {
-      const auto choice = util::sample_choice(groups, rng);
-      d.add_value(choice, i);
-    }
+  for (size_t i = 0; i < domains_.size(); i++) {
+    const auto &c = clusters[i];
+    MICROSCOPES_DCHECK(c.size() > 0, "no clusters given!");
+    for (size_t j = 0; j < c.size(); j++)
+      domains_[i].create_group();
+    AssertAllEntitiesAccounted(c, domains_[i].nentities());
+    for (size_t j = 0; j < c.size(); j++)
+      for (auto eid : c[j])
+        domains_[i].add_value(j, eid);
   }
 
   for (size_t i = 0; i < relations_.size(); i++) {
     auto &relation = relations_[i];
-    MICROSCOPES_DCHECK(
-        relation.suffstats_table_.empty() &&
-        relation.ident_table_.empty() &&
-        !relation.ident_gen_, "data already present");
     for (const auto &p : *d[i]) {
       vector<size_t> groups;
       groups.reserve(relation.desc_.domains_.size());
@@ -111,6 +115,29 @@ state::random_initialize(const dataset_t &d, rng_t &rng)
       group->add_value(*relation.desc_.model_, p.second, rng);
     }
   }
+}
+
+void
+state::random_initialize(const dataset_t &d, rng_t &rng)
+{
+  MICROSCOPES_DCHECK(is_correct_shape(d), "not presented with the relations");
+
+  vector<vector<set<size_t>>> clusters;
+  clusters.reserve(domains_.size());
+  for (auto &d : domains_) {
+    vector<set<size_t>> cluster;
+    // create min(100, n/2) + 1 groups
+    const size_t ngroups = min(size_t(100), d.nentities()) + 1;
+    cluster.resize(ngroups);
+    const auto groups = util::range(ngroups);
+    for (size_t i = 0; i < d.nentities(); i++) {
+      const auto choice = util::sample_choice(groups, rng);
+      cluster[choice].insert(i);
+    }
+    clusters.emplace_back(cluster);
+  }
+
+  initialize(clusters, d, rng);
 }
 
 // XXX: all the *_value methods have too much code duplication
@@ -320,4 +347,16 @@ state::score_likelihood(size_t relation, rng_t &rng) const
   for (auto &p : relations_[relation].suffstats_table_)
     score += p.second.ss_->score_data(*m, rng);
   return score;
+}
+
+void
+state::reset()
+{
+  for (auto &d : domains_)
+    d.reset();
+  for (auto &r : relations_) {
+    r.suffstats_table_.clear();
+    r.ident_table_.clear();
+    r.ident_gen_ = 0;
+  }
 }
