@@ -194,10 +194,108 @@ test2()
   delete [] masks;
 }
 
+static pair<unique_ptr<bool[]>, unique_ptr<bool[]>>
+binary_relation_generate(
+    size_t domain0, size_t domain1,
+    float p0, float p1,
+    rng_t &r)
+{
+  unique_ptr<bool[]> data(new bool[domain0*domain1]);
+  unique_ptr<bool[]> mask(new bool[domain0*domain1]);
+
+  for (size_t x = 0; x < domain0; x++) {
+    for (size_t y = 0; y < domain1; y++) {
+      const size_t idx = x*domain1 + y;
+      if (bernoulli_distribution(p0)(r)) {
+        mask[idx] = false;
+        data[idx] = bernoulli_distribution(p1)(r);
+      } else {
+        mask[idx] = true;
+      }
+    }
+  }
+
+  return make_pair(move(data), move(mask));
+}
+
+static void
+test3()
+{
+  random_device rd;
+  rng_t r(rd());
+
+  const vector<size_t> domains({10, 5});
+  const vector<float> domain_alphas({2.0, 20.0});
+
+  const vector<state::relation_t> relations({
+      state::relation_t({0, 1}, distributions_factory<BetaBernoulli>().new_instance()),
+      state::relation_t({1, 1}, distributions_factory<BetaBernoulli>().new_instance())
+  });
+
+  const vector<hyperparam_bag_t> relation_hps({
+      beta_bernoulli_hp(2.0, 2.0),
+      beta_bernoulli_hp(2.0, 3.0)
+  });
+
+  shared_ptr<state> s = make_shared<state>(domains, relations);
+
+  for (size_t i = 0; i < domain_alphas.size(); i++) {
+    state::message_type hp;
+    hp.set_alpha(domain_alphas[i]);
+    s->set_domain_hp(i, protobuf_to_string(hp));
+  }
+
+  for (size_t i = 0; i < relation_hps.size(); i++)
+    s->set_relation_hp(i, relation_hps[i]);
+
+  auto rel0 = binary_relation_generate(
+      domains[0], domains[1],
+      0.2, 0.8, r);
+
+  auto rel1 = binary_relation_generate(
+      domains[1], domains[1],
+      0.3, 0.7, r);
+
+  shared_ptr<dataview> rel0view(
+    new row_major_dense_dataview(
+        reinterpret_cast<uint8_t*>(rel0.first.get()),
+        rel0.second.get(),
+        {domains[0], domains[1]},
+        runtime_type(TYPE_B)));
+
+  shared_ptr<dataview> rel1view(
+    new row_major_dense_dataview(
+        reinterpret_cast<uint8_t*>(rel1.first.get()),
+        rel1.second.get(),
+        {domains[1], domains[1]},
+        runtime_type(TYPE_B)));
+
+  const vector<const dataview *> d({rel0view.get(), rel1view.get()});
+  s->random_initialize(d, r);
+
+  bound_state s0(s, 0, {rel0view, rel1view});
+  bound_state s1(s, 1, {rel0view, rel1view});
+
+  for (size_t i = 0; i < s0.nentities(); i++) {
+    s0.remove_value(i, r);
+    auto scores = s0.score_value(i, r);
+    const auto choice = scores.first[util::sample_discrete_log(scores.second, r)];
+    s0.add_value(choice, i, r);
+  }
+
+  for (size_t i = 0; i < s1.nentities(); i++) {
+    s1.remove_value(i, r);
+    auto scores = s1.score_value(i, r);
+    const auto choice = scores.first[util::sample_discrete_log(scores.second, r)];
+    s1.add_value(choice, i, r);
+  }
+}
+
 int
 main(void)
 {
   test1();
   test2();
+  test3();
   return 0;
 }

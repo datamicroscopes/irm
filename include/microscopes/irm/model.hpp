@@ -511,6 +511,10 @@ public:
     throw std::runtime_error("not implemented");
   }
 
+  size_t create_group(common::rng_t &rng) override { return impl_->create_group(domain_); }
+
+  void delete_group(size_t gid) override { impl_->delete_group(domain_, gid); }
+
 private:
   std::shared_ptr<state> impl_;
   size_t domain_;
