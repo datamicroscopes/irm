@@ -77,6 +77,7 @@ clean:
 
 .PHONY: test
 test: test_cxx
+	python setup.py build_ext --inplace
 	$(LIBPATH_VARNAME)=$$$(LIBPATH_VARNAME):../common/out:./out PYTHONPATH=$$PYTHONPATH:../common:. nosetests
 
 .PHONY: test_cxx
