@@ -139,7 +139,7 @@ state::iterate_over_entity_data(
     size_t domain,
     size_t eid,
     const dataset_t &d,
-    function<void(size_t, const vector<size_t> &, const ::value_accessor &)> callback) const
+    function<void(size_t, const vector<size_t> &, const value_accessor &)> callback) const
 {
   for (const auto &dr : domain_relations_[domain]) {
     auto &relation = relations_[dr.rel_];
@@ -162,6 +162,18 @@ state::iterate_over_entity_data(
       callback(dr.rel_, p.first, p.second);
     }
   }
+}
+
+vector< vector<size_t> >
+state::entity_data_positions(size_t domain, size_t eid, const dataset_t &d) const
+{
+  vector< vector<size_t> > ret;
+  iterate_over_entity_data(
+      domain, eid, d,
+      [&ret](size_t, const vector<size_t> &eids, const value_accessor &) {
+        ret.emplace_back(eids);
+      });
+  return ret;
 }
 
 void

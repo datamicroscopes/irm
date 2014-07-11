@@ -412,6 +412,10 @@ public:
     }
   }
 
+  // for testing
+  std::vector< std::vector<size_t> >
+  entity_data_positions(size_t domain, size_t eid, const dataset_t &d) const;
+
 protected:
   // the *_value0 methods do no error checking
 

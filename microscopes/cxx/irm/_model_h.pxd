@@ -30,6 +30,9 @@ cdef extern from "microscopes/irm/model.hpp" namespace "microscopes::irm":
         float score_assignment() except +
         float score_likelihood(rng_t &) except +
 
+        # stupid testing functions
+        vector[vector[size_t]] entity_data_positions(size_t, size_t, const dataset_t &) except +
+
     cdef cppclass bound_state(entity_based_state_object):
         bound_state(const shared_ptr[state] &,
                     size_t,

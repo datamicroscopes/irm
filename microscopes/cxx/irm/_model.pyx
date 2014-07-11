@@ -84,6 +84,10 @@ cdef class state:
         assert r
         return self._thisptr.get().score_likelihood(r._thisptr[0]);
 
+    def entity_data_positions(self, int domain, int eid, relations):
+        cdef vector[vector[size_t]] cret = self._thisptr.get().entity_data_positions(domain, eid, get_crelations_raw(relations))
+        return [[x for x in inner] for inner in cret]
+
 def bind(state s, int domain, relations):
     cdef shared_ptr[c_entity_based_state_object] px
     cdef vector[shared_ptr[c_dataview]] crelations = get_crelations(relations)
