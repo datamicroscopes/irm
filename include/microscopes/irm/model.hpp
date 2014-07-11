@@ -474,6 +474,13 @@ private:
       relation_container_t &relation,
       common::rng_t &rng);
 
+  void
+  iterate_over_entity_data(
+      size_t domain,
+      size_t eid,
+      const dataset_t &d,
+      std::function<void(size_t, const std::vector<size_t> &, const common::value_accessor &)> callback) const;
+
   inline suffstats_t &
   get_suffstats_t(size_t relation, common::ident_t id)
   {

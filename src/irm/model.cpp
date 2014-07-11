@@ -135,6 +135,36 @@ state::remove_value_from_feature_group(
 }
 
 void
+state::iterate_over_entity_data(
+    size_t domain,
+    size_t eid,
+    const dataset_t &d,
+    function<void(size_t, const vector<size_t> &, const ::value_accessor &)> callback) const
+{
+  for (const auto &dr : domain_relations_[domain]) {
+    auto &relation = relations_[dr.rel_];
+    auto &data = d[dr.rel_];
+    vector<size_t> ignore_idxs;
+    for (size_t i = 0; i < dr.pos_; i++)
+      if (relation.desc_.domains_[i] == domain)
+        ignore_idxs.push_back(i);
+    for (const auto &p : data->slice(dr.pos_, eid)) {
+      // don't double count
+      bool skip = false;
+      for (auto idx : ignore_idxs) {
+        if (p.first[idx] == eid) {
+          skip = true;
+          break;
+        }
+      }
+      if (skip)
+        continue;
+      callback(dr.rel_, p.first, p.second);
+    }
+  }
+}
+
+void
 state::initialize(const vector<vector<set<size_t>>> &clusters, const dataset_t &d, rng_t &rng)
 {
   MICROSCOPES_DCHECK(clusters.size() == domains_.size(), "invalid number of clusterings");
@@ -188,58 +218,33 @@ void
 state::add_value0(size_t domain, size_t gid, size_t eid, const dataset_t &d, rng_t &rng, float *acc_score)
 {
   domains_[domain].add_value(gid, eid);
-  for (const auto &dr : domain_relations_[domain]) {
-    auto &relation = relations_[dr.rel_];
-    auto &data = d[dr.rel_];
-    vector<size_t> ignore_idxs;
-    for (size_t i = 0; i < dr.pos_; i++)
-      if (relation.desc_.domains_[i] == domain)
-        ignore_idxs.push_back(i);
-    vector<size_t> gids;
-    for (const auto &p : data->slice(dr.pos_, eid)) {
-      // don't double count
-      bool skip = false;
-      for (auto idx : ignore_idxs) {
-        if (p.first[idx] == eid) {
-          skip = true;
-          break;
-        }
-      }
-      if (skip)
-        continue;
-      eids_to_gids_under_relation(gids, p.first, relation.desc_);
-      add_value_to_feature_group(gids, p.second, relation, rng, acc_score);
-    }
-  }
+  vector<size_t> gids;
+  iterate_over_entity_data(
+      domain, eid, d,
+      [this, &gids, &rng, acc_score](
+         size_t rid,
+         const vector<size_t> &eids,
+         const value_accessor &value) {
+          auto &relation = this->relations_[rid];
+          this->eids_to_gids_under_relation(gids, eids, relation.desc_);
+          this->add_value_to_feature_group(gids, value, relation, rng, acc_score);
+      });
 }
 
 size_t
 state::remove_value0(size_t domain, size_t eid, const dataset_t &d, rng_t &rng)
 {
-  // XXX: we duplicate this iteration code twice (also in add_value0)
-  for (const auto &dr : domain_relations_[domain]) {
-    auto &relation = relations_[dr.rel_];
-    auto &data = d[dr.rel_];
-    vector<size_t> ignore_idxs;
-    for (size_t i = 0; i < dr.pos_; i++)
-      if (relation.desc_.domains_[i] == domain)
-        ignore_idxs.push_back(i);
-    vector<size_t> gids;
-    for (const auto &p : data->slice(dr.pos_, eid)) {
-      // don't double count
-      bool skip = false;
-      for (auto idx : ignore_idxs) {
-        if (p.first[idx] == eid) {
-          skip = true;
-          break;
-        }
-      }
-      if (skip)
-        continue;
-      eids_to_gids_under_relation(gids, p.first, relation.desc_);
-      remove_value_from_feature_group(gids, p.second, relation, rng);
-    }
-  }
+  vector<size_t> gids;
+  iterate_over_entity_data(
+      domain, eid, d,
+      [this, &gids, &rng](
+         size_t rid,
+         const vector<size_t> &eids,
+         const value_accessor &value) {
+          auto &relation = this->relations_[rid];
+          this->eids_to_gids_under_relation(gids, eids, relation.desc_);
+          this->remove_value_from_feature_group(gids, value, relation, rng);
+      });
   return domains_[domain].remove_value(eid);
 }
 
