@@ -194,6 +194,11 @@ state::initialize(const vector<vector<set<size_t>>> &clusters, const dataset_t &
       for (auto eid : c[j])
         domains_[i].add_value(j, eid);
   }
+#ifdef DEBUG_MODE
+  for (auto &d : domains_)
+    for (auto s : d.assignments())
+      MICROSCOPES_DCHECK(s != -1, "assignments should all be filled");
+#endif
 
   vector<size_t> gids;
   for (size_t i = 0; i < relations_.size(); i++) {
@@ -274,7 +279,7 @@ state::score_value0(size_t did, size_t eid, const dataset_t &d, rng_t &rng) cons
   const float empty_group_alpha = domain.alpha_ / float(domain.empty_groups().size());
   size_t count = 0;
   for (const auto &g : groups) {
-    float sum = g.second ? float(g.second) : empty_group_alpha;
+    float sum = fast_log(g.second ? float(g.second) : empty_group_alpha);
     const_cast<state *>(this)->add_value0(did, g.first, eid, d, rng, &sum);
     const size_t gid = const_cast<state *>(this)->remove_value0(did, eid, d, rng);
     if (unlikely(gid != g.first))

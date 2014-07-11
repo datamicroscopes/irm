@@ -1,6 +1,7 @@
 from libcpp.vector cimport vector
 from libcpp.set cimport set
 from libc.stddef cimport size_t
+from libcpp cimport bool
 
 from microscopes._shared_ptr_h cimport shared_ptr
 from microscopes.cxx.common._entity_state_h cimport entity_based_state_object
@@ -18,16 +19,20 @@ cdef extern from "microscopes/irm/model.hpp" namespace "microscopes::irm":
 
         state(const vector[size_t] &, const vector[relation_t] &) except +
 
+        vector[size_t] groups(size_t) except +
+
         hyperparam_bag_t get_domain_hp(size_t) except +
         void set_domain_hp(size_t, const hyperparam_bag_t &) except +
 
         hyperparam_bag_t get_relation_hp(size_t) except +
         void set_relation_hp(size_t, const hyperparam_bag_t &) except +
 
+        bool get_suffstats(size_t, const vector[size_t] &, suffstats_bag_t &) except +
+
         void random_initialize(const dataset_t &, rng_t &) except +
         void initialize(const vector[vector[set[size_t]]] &, const dataset_t &, rng_t &) except +
 
-        float score_assignment() except +
+        float score_assignment(size_t) except +
         float score_likelihood(rng_t &) except +
 
         # stupid testing functions

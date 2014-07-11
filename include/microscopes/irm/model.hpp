@@ -313,6 +313,17 @@ public:
     return get_suffstats_t(relation, id).ss_->get_ss();
   }
 
+  inline bool
+  get_suffstats(size_t relation, const std::vector<size_t> &gids, common::suffstats_bag_t &ss) const
+  {
+    MICROSCOPES_DCHECK(relation < relations_.size(), "invalid relation id");
+    const auto it = relations_[relation].suffstats_table_.find(gids);
+    if (it == relations_[relation].suffstats_table_.end())
+      return false;
+    ss = it->second.ss_->get_ss();
+    return true;
+  }
+
   inline void
   set_suffstats(size_t relation, common::ident_t id, const common::suffstats_bag_t &ss)
   {

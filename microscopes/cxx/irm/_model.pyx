@@ -58,6 +58,9 @@ cdef class state:
     def models(self):
         return [m for _, m in self._relations]
 
+    def groups(self, int domain):
+        return [g for g in self._thisptr.get().groups(domain)]
+
     def get_domain_hp(self, int domain):
         m = CRP()
         raw = str(self._thisptr.get().get_domain_hp(domain))
@@ -77,8 +80,19 @@ cdef class state:
         cdef hyperparam_bag_t raw = self._relations[relation][1][0].shared_dict_to_bytes(d)
         self._thisptr.get().set_relation_hp(relation, raw)
 
-    def score_assignment(self):
-        return self._thisptr.get().score_assignment()
+    def get_suffstats(self, int relation, gids):
+        cdef suffstats_bag_t raw
+        cdef vector[size_t] cgids
+        for g in gids:
+            cgids.push_back(int(g))
+        cdef cbool found = self._thisptr.get().get_suffstats(relation, cgids, raw)
+        if not found:
+            return None
+        else:
+            return self._relations[relation][1][0].group_bytes_to_dict(raw)
+
+    def score_assignment(self, int domain):
+        return self._thisptr.get().score_assignment(domain)
 
     def score_likelihood(self, rng r):
         assert r

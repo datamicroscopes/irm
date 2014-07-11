@@ -1,6 +1,7 @@
 from libcpp.vector cimport vector
 from libcpp.set cimport set
 from libc.stddef cimport size_t
+from libcpp cimport bool as cbool
 
 from microscopes._shared_ptr_h cimport shared_ptr
 from microscopes.cxx._models cimport factory
