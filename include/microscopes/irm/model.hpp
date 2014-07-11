@@ -94,7 +94,7 @@ public:
   groupsize(size_t gid) const
   {
     const auto it = groups_.find(gid);
-    MICROSCOPES_ASSERT(it != groups_.end());
+    MICROSCOPES_DCHECK(it != groups_.end(), "invalid gid");
     return it->second;
   }
 
@@ -122,8 +122,8 @@ public:
   delete_group(size_t gid)
   {
     auto it = groups_.find(gid);
-    MICROSCOPES_ASSERT(it != groups_.end());
-    MICROSCOPES_ASSERT(!it->second);
+    MICROSCOPES_DCHECK(it != groups_.end(), "invalid gid");
+    MICROSCOPES_DCHECK(!it->second, "group not empty");
     MICROSCOPES_ASSERT(gempty_.count(gid));
     groups_.erase(it);
     gempty_.erase(gid);
@@ -132,9 +132,9 @@ public:
   inline void
   add_value(size_t gid, size_t eid)
   {
-    MICROSCOPES_ASSERT(assignments_.at(eid) == -1);
+    MICROSCOPES_DCHECK(assignments_.at(eid) == -1, "entity already assigned");
     auto it = groups_.find(gid);
-    MICROSCOPES_ASSERT(it != groups_.end());
+    MICROSCOPES_DCHECK(it != groups_.end(), "invalid gid");
     if (!it->second++) {
       MICROSCOPES_ASSERT(gempty_.count(gid));
       gempty_.erase(gid);
@@ -148,7 +148,7 @@ public:
   inline size_t
   remove_value(size_t eid)
   {
-    MICROSCOPES_ASSERT(assignments_.at(eid) != -1);
+    MICROSCOPES_DCHECK(assignments_.at(eid) != -1, "entity not assigned");
     const size_t gid = assignments_[eid];
     auto it = groups_.find(gid);
     MICROSCOPES_ASSERT(it != groups_.end());
@@ -183,6 +183,7 @@ protected:
 typedef std::vector<const common::sparse_ndarray::dataview *> dataset_t;
 
 class state {
+  friend class bound_state;
 public:
 
   typedef detail::domain::message_type message_type;
@@ -347,11 +348,29 @@ public:
   void random_initialize(const dataset_t &d, common::rng_t &rng);
   void initialize(const std::vector< std::vector<std::set<size_t>> > &clusters, const dataset_t &d, common::rng_t &rng);
 
-  void add_value(size_t domain, size_t gid, size_t eid, const dataset_t &d, common::rng_t &rng);
-  size_t remove_value(size_t domain, size_t eid, const dataset_t &d, common::rng_t &rng);
+  inline void
+  add_value(size_t domain, size_t gid, size_t eid, const dataset_t &d, common::rng_t &rng)
+  {
+    MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain");
+    assert_correct_shape(d);
+    add_value0(domain, gid, eid, d, rng, nullptr);
+  }
+
+  inline size_t
+  remove_value(size_t domain, size_t eid, const dataset_t &d, common::rng_t &rng)
+  {
+    MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain");
+    assert_correct_shape(d);
+    return remove_value0(domain, eid, d, rng);
+  }
 
   std::pair<std::vector<size_t>, std::vector<float>>
-  score_value(size_t domain, size_t eid, const dataset_t &d, common::rng_t &rng) const;
+  score_value(size_t domain, size_t eid, const dataset_t &d, common::rng_t &rng) const
+  {
+    MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain");
+    assert_correct_shape(d);
+    return score_value0(domain, eid, d, rng);
+  }
 
   inline float
   score_assignment(size_t domain) const
@@ -382,11 +401,33 @@ public:
     return score;
   }
 
-  // XXX: implement me
-  inline bool is_correct_shape(const dataset_t &d) const { return true; }
+  inline void
+  assert_correct_shape(const dataset_t &d) const
+  {
+    MICROSCOPES_DCHECK(d.size() == relations_.size(), "#s dont match");
+    for (size_t i = 0; i < d.size(); i++) {
+      MICROSCOPES_DCHECK(relations_[i].desc_.domains_.size() == d[i]->dims(), "arity does not match");
+      for (size_t j = 0; j < d[i]->dims(); j++)
+        MICROSCOPES_DCHECK(domains_[relations_[i].desc_.domains_[j]].nentities() == d[i]->shape()[j], "shape does not match");
+    }
+  }
+
+protected:
+  // the *_value0 methods do no error checking
+
+  void add_value0(size_t domain, size_t gid, size_t eid,
+      const dataset_t &d, common::rng_t &rng, float *acc_score);
+
+  size_t remove_value0(size_t domain, size_t eid,
+      const dataset_t &d, common::rng_t &rng);
+
+  std::pair<std::vector<size_t>, std::vector<float>>
+  score_value0(size_t did, size_t eid,
+      const dataset_t &d, common::rng_t &rng) const;
+
+  void reset();
 
 private:
-  void reset();
 
   struct rel_pos_t {
     rel_pos_t() : rel_(), pos_() {}
@@ -411,6 +452,27 @@ private:
     std::map<common::ident_t, tuple_t> ident_table_;
     common::ident_t ident_gen_;
   };
+
+  void
+  eids_to_gids_under_relation(
+      std::vector<size_t> &gids,
+      const std::vector<size_t> &eids,
+      const relation_t &desc) const;
+
+  void
+  add_value_to_feature_group(
+      const std::vector<size_t> &gids,
+      const common::value_accessor &value,
+      relation_container_t &relation,
+      common::rng_t &rng,
+      float *acc_score);
+
+  void
+  remove_value_from_feature_group(
+      const std::vector<size_t> &gids,
+      const common::value_accessor &value,
+      relation_container_t &relation,
+      common::rng_t &rng);
 
   inline suffstats_t &
   get_suffstats_t(size_t relation, common::ident_t id)
@@ -465,6 +527,7 @@ public:
     data_raw_.reserve(data_.size());
     for (auto &p : data_)
       data_raw_.push_back(p.get());
+    impl_->assert_correct_shape(data_raw_);
   }
 
   size_t nentities() const override { return impl_->nentities(domain_); }
@@ -515,19 +578,19 @@ public:
   void
   add_value(size_t gid, size_t eid, common::rng_t &rng) override
   {
-    impl_->add_value(domain_, gid, eid, data_raw_, rng);
+    impl_->add_value0(domain_, gid, eid, data_raw_, rng, nullptr);
   }
 
   size_t
   remove_value(size_t eid, common::rng_t &rng) override
   {
-    return impl_->remove_value(domain_, eid, data_raw_, rng);
+    return impl_->remove_value0(domain_, eid, data_raw_, rng);
   }
 
   std::pair<std::vector<size_t>, std::vector<float>>
   score_value(size_t eid, common::rng_t &rng) const override
   {
-    return impl_->score_value(domain_, eid, data_raw_, rng);
+    return impl_->score_value0(domain_, eid, data_raw_, rng);
   }
 
   float score_assignment() const override { return impl_->score_assignment(domain_); }

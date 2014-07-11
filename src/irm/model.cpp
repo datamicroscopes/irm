@@ -71,9 +71,75 @@ AssertAllEntitiesAccounted(const vector<set<size_t>> &c, size_t n)
 }
 
 void
+state::eids_to_gids_under_relation(
+    vector<size_t> &gids,
+    const vector<size_t> &eids,
+    const relation_t &desc) const
+{
+  gids.clear();
+  gids.reserve(desc.domains_.size());
+  for (size_t i = 0; i < desc.domains_.size(); i++) {
+    MICROSCOPES_ASSERT(domains_[desc.domains_[i]].assignments()[eids[i]] != -1);
+    gids.push_back(domains_[desc.domains_[i]].assignments()[eids[i]]);
+  }
+}
+
+void
+state::add_value_to_feature_group(
+    const vector<size_t> &gids,
+    const value_accessor &value,
+    relation_container_t &relation,
+    rng_t &rng,
+    float *acc_score)
+{
+  shared_ptr<feature_group> group;
+  auto it = relation.suffstats_table_.find(gids);
+  if (it == relation.suffstats_table_.end()) {
+    group = relation.desc_.model_->create_feature_group(rng);
+    auto &ss = relation.suffstats_table_[gids];
+    ss.ident_ = relation.ident_gen_++;
+    ss.count_ = 1;
+    ss.ss_ = group;
+    MICROSCOPES_ASSERT(relation.ident_table_.find(ss.ident_) == relation.ident_table_.end());
+    relation.ident_table_[ss.ident_] = gids;
+  } else {
+    MICROSCOPES_ASSERT(it->second.count_);
+    it->second.count_++;
+    group = it->second.ss_;
+  }
+  MICROSCOPES_ASSERT(group);
+  if (acc_score)
+    *acc_score += group->score_value(*relation.desc_.model_, value, rng);
+  group->add_value(*relation.desc_.model_, value, rng);
+}
+
+void
+state::remove_value_from_feature_group(
+    const vector<size_t> &gids,
+    const value_accessor &value,
+    relation_container_t &relation,
+    rng_t &rng)
+{
+  auto it = relation.suffstats_table_.find(gids);
+  MICROSCOPES_ASSERT(it != relation.suffstats_table_.end());
+  MICROSCOPES_ASSERT(it->second.count_);
+  MICROSCOPES_ASSERT(it->second.ss_);
+  MICROSCOPES_ASSERT(
+      relation.ident_table_.find(it->second.ident_) != relation.ident_table_.end() &&
+      relation.ident_table_[it->second.ident_] == gids);
+  it->second.ss_->remove_value(*relation.desc_.model_, value, rng);
+  if (!--it->second.count_) {
+    relation.ident_table_.erase(it->second.ident_);
+    relation.suffstats_table_.erase(it);
+  }
+}
+
+void
 state::initialize(const vector<vector<set<size_t>>> &clusters, const dataset_t &d, rng_t &rng)
 {
   MICROSCOPES_DCHECK(clusters.size() == domains_.size(), "invalid number of clusterings");
+  assert_correct_shape(d);
+
   reset();
 
   for (size_t i = 0; i < domains_.size(); i++) {
@@ -87,32 +153,12 @@ state::initialize(const vector<vector<set<size_t>>> &clusters, const dataset_t &
         domains_[i].add_value(j, eid);
   }
 
+  vector<size_t> gids;
   for (size_t i = 0; i < relations_.size(); i++) {
     auto &relation = relations_[i];
     for (const auto &p : *d[i]) {
-      vector<size_t> groups;
-      groups.reserve(relation.desc_.domains_.size());
-      for (size_t i = 0; i < relation.desc_.domains_.size(); i++) {
-        MICROSCOPES_DCHECK(domains_[relation.desc_.domains_[i]].assignments()[p.first[i]] != -1, "unassigned");
-        groups.push_back(domains_[relation.desc_.domains_[i]].assignments()[p.first[i]]);
-      }
-      shared_ptr<feature_group> group;
-      auto it = relation.suffstats_table_.find(groups);
-      if (it == relation.suffstats_table_.end()) {
-        group = relation.desc_.model_->create_feature_group(rng);
-        auto &ss = relation.suffstats_table_[groups];
-        ss.ident_ = relation.ident_gen_++;
-        ss.count_ = 1;
-        ss.ss_ = group;
-        MICROSCOPES_ASSERT(relation.ident_table_.find(ss.ident_) == relation.ident_table_.end());
-        relation.ident_table_[ss.ident_] = groups;
-      } else {
-        MICROSCOPES_ASSERT(it->second.count_);
-        it->second.count_++;
-        group = it->second.ss_;
-      }
-      MICROSCOPES_ASSERT(group);
-      group->add_value(*relation.desc_.model_, p.second, rng);
+      eids_to_gids_under_relation(gids, p.first, relation.desc_);
+      add_value_to_feature_group(gids, p.second, relation, rng, nullptr);
     }
   }
 }
@@ -120,8 +166,7 @@ state::initialize(const vector<vector<set<size_t>>> &clusters, const dataset_t &
 void
 state::random_initialize(const dataset_t &d, rng_t &rng)
 {
-  MICROSCOPES_DCHECK(is_correct_shape(d), "not presented with the relations");
-
+  assert_correct_shape(d);
   vector<vector<set<size_t>>> clusters;
   clusters.reserve(domains_.size());
   for (auto &d : domains_) {
@@ -136,191 +181,87 @@ state::random_initialize(const dataset_t &d, rng_t &rng)
     }
     clusters.emplace_back(cluster);
   }
-
   initialize(clusters, d, rng);
 }
 
-// XXX: all the *_value methods have too much code duplication
-
 void
-state::add_value(size_t domain, size_t gid, size_t eid, const dataset_t &d, rng_t &rng)
+state::add_value0(size_t domain, size_t gid, size_t eid, const dataset_t &d, rng_t &rng, float *acc_score)
 {
-  MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain");
-  MICROSCOPES_DCHECK(domains_[domain].isactivegroup(gid), "invalid gid");
-  MICROSCOPES_DCHECK(eid < domains_[domain].nentities(), "invalid eid");
-  MICROSCOPES_DCHECK(is_correct_shape(d), "not presented with the relations");
-
+  domains_[domain].add_value(gid, eid);
   for (const auto &dr : domain_relations_[domain]) {
     auto &relation = relations_[dr.rel_];
     auto &data = d[dr.rel_];
-
     vector<size_t> ignore_idxs;
     for (size_t i = 0; i < dr.pos_; i++)
       if (relation.desc_.domains_[i] == domain)
         ignore_idxs.push_back(i);
-
-    vector<size_t> groups;
+    vector<size_t> gids;
     for (const auto &p : data->slice(dr.pos_, eid)) {
       // don't double count
       bool skip = false;
-      for (auto idx : ignore_idxs)
+      for (auto idx : ignore_idxs) {
         if (p.first[idx] == eid) {
           skip = true;
           break;
         }
+      }
       if (skip)
         continue;
-
-      groups.clear();
-      for (size_t i = 0; i < relation.desc_.domains_.size(); i++) {
-        if (relation.desc_.domains_[i] == domain && p.first[i] == eid)
-          groups.push_back(gid);
-        else {
-          MICROSCOPES_DCHECK(domains_[relation.desc_.domains_[i]].assignments()[p.first[i]] != -1, "unassigned");
-          groups.push_back(domains_[relation.desc_.domains_[i]].assignments()[p.first[i]]);
-        }
-      }
-      shared_ptr<feature_group> group;
-      auto it = relation.suffstats_table_.find(groups);
-      if (it == relation.suffstats_table_.end()) {
-        group = relation.desc_.model_->create_feature_group(rng);
-        auto &ss = relation.suffstats_table_[groups];
-        ss.ident_ = relation.ident_gen_++;
-        ss.count_ = 1;
-        ss.ss_ = group;
-        MICROSCOPES_ASSERT(relation.ident_table_.find(ss.ident_) == relation.ident_table_.end());
-        relation.ident_table_[ss.ident_] = groups;
-      } else {
-        MICROSCOPES_ASSERT(it->second.count_);
-        it->second.count_++;
-        group = it->second.ss_;
-      }
-      MICROSCOPES_ASSERT(group);
-      group->add_value(*relation.desc_.model_, p.second, rng);
+      eids_to_gids_under_relation(gids, p.first, relation.desc_);
+      add_value_to_feature_group(gids, p.second, relation, rng, acc_score);
     }
   }
-
-  domains_[domain].add_value(gid, eid);
 }
 
 size_t
-state::remove_value(size_t domain, size_t eid, const dataset_t &d, rng_t &rng)
+state::remove_value0(size_t domain, size_t eid, const dataset_t &d, rng_t &rng)
 {
-  MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain");
-  MICROSCOPES_DCHECK(eid < domains_[domain].nentities(), "invalid eid");
-  MICROSCOPES_DCHECK(is_correct_shape(d), "not presented with the relations");
-
+  // XXX: we duplicate this iteration code twice (also in add_value0)
   for (const auto &dr : domain_relations_[domain]) {
     auto &relation = relations_[dr.rel_];
     auto &data = d[dr.rel_];
-
-#ifdef DEBUG_MODE
-    vector<size_t> expected_shape;
-    for (auto d : relation.desc_.domains_)
-      expected_shape.push_back(domains_[d].nentities());
-    MICROSCOPES_DCHECK(expected_shape == data->shape(), "improper relation shape given");
-#endif
-
     vector<size_t> ignore_idxs;
     for (size_t i = 0; i < dr.pos_; i++)
       if (relation.desc_.domains_[i] == domain)
         ignore_idxs.push_back(i);
-
-    vector<size_t> groups;
+    vector<size_t> gids;
     for (const auto &p : data->slice(dr.pos_, eid)) {
       // don't double count
       bool skip = false;
-      for (auto idx : ignore_idxs)
+      for (auto idx : ignore_idxs) {
         if (p.first[idx] == eid) {
           skip = true;
           break;
         }
+      }
       if (skip)
         continue;
-
-      groups.clear();
-      for (size_t i = 0; i < relation.desc_.domains_.size(); i++) {
-        MICROSCOPES_DCHECK(domains_[relation.desc_.domains_[i]].assignments()[p.first[i]] != -1, "unassigned");
-        groups.push_back(domains_[relation.desc_.domains_[i]].assignments()[p.first[i]]);
-      }
-      auto it = relation.suffstats_table_.find(groups);
-      MICROSCOPES_ASSERT(it != relation.suffstats_table_.end());
-      MICROSCOPES_ASSERT(it->second.count_);
-      MICROSCOPES_ASSERT(it->second.ss_);
-      MICROSCOPES_ASSERT(
-          relation.ident_table_.find(it->second.ident_) != relation.ident_table_.end() &&
-          relation.ident_table_[it->second.ident_] == groups);
-
-      it->second.ss_->remove_value(*relation.desc_.model_, p.second, rng);
-      if (!--it->second.count_) {
-        relation.ident_table_.erase(it->second.ident_);
-        relation.suffstats_table_.erase(it);
-      }
+      eids_to_gids_under_relation(gids, p.first, relation.desc_);
+      remove_value_from_feature_group(gids, p.second, relation, rng);
     }
   }
-
   return domains_[domain].remove_value(eid);
 }
 
 pair<vector<size_t>, vector<float>>
-state::score_value(size_t did, size_t eid, const dataset_t &d, rng_t &rng) const
+state::score_value0(size_t did, size_t eid, const dataset_t &d, rng_t &rng) const
 {
-  MICROSCOPES_DCHECK(is_correct_shape(d), "not presented with the relations");
   const auto &domain = domains_[did];
-
   MICROSCOPES_DCHECK(!domain.empty_groups().empty(), "no empty groups");
-
   const auto &groups = domain.groups_;
+
   pair<vector<size_t>, vector<float>> ret;
   ret.first.reserve(groups.size());
   ret.second.reserve(groups.size());
-  const float empty_group_alpha = domain.alpha_ / float(domain.empty_groups().size());
 
+  const float empty_group_alpha = domain.alpha_ / float(domain.empty_groups().size());
   size_t count = 0;
   for (const auto &g : groups) {
     float sum = g.second ? float(g.second) : empty_group_alpha;
-    for (const auto &dr : domain_relations_[did]) {
-      auto &relation = relations_[dr.rel_];
-      auto &data = d[dr.rel_];
-
-      vector<size_t> ignore_idxs;
-      for (size_t i = 0; i < dr.pos_; i++)
-        if (relation.desc_.domains_[i] == did)
-          ignore_idxs.push_back(i);
-
-      vector<size_t> groups;
-      for (const auto &p : data->slice(dr.pos_, eid)) {
-        // don't double count
-        bool skip = false;
-        for (auto idx : ignore_idxs)
-          if (p.first[idx] == eid) {
-            skip = true;
-            break;
-          }
-        if (skip)
-          continue;
-
-        groups.clear();
-        for (size_t i = 0; i < relation.desc_.domains_.size(); i++) {
-          if (relation.desc_.domains_[i] == did && p.first[i] == eid)
-            groups.push_back(g.first);
-          else {
-            MICROSCOPES_DCHECK(domains_[relation.desc_.domains_[i]].assignments()[p.first[i]] != -1, "unassigned");
-            groups.push_back(domains_[relation.desc_.domains_[i]].assignments()[p.first[i]]);
-          }
-        }
-        shared_ptr<feature_group> group;
-        auto it = relation.suffstats_table_.find(groups);
-        if (it == relation.suffstats_table_.end()) {
-          group = relation.desc_.model_->create_feature_group(rng);
-        } else {
-          MICROSCOPES_ASSERT(it->second.count_);
-          group = it->second.ss_;
-        }
-        MICROSCOPES_ASSERT(group);
-        sum += group->score_value(*relation.desc_.model_, p.second, rng);
-      }
-    }
+    const_cast<state *>(this)->add_value0(did, g.first, eid, d, rng, &sum);
+    const size_t gid = const_cast<state *>(this)->remove_value0(did, eid, d, rng);
+    if (unlikely(gid != g.first))
+      MICROSCOPES_ASSERT(false);
     ret.first.push_back(g.first);
     ret.second.push_back(sum);
     count += g.second;
