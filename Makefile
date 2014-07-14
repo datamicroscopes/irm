@@ -8,6 +8,7 @@ MICROSCOPES_COMMON_REPO ?= $(TOP)/../common
 
 # set the CXXFLAGS
 CXXFLAGS := -fPIC -g -MD -Wall -std=c++0x -I$(TOP)/include
+CXXFLAGS += -Wno-deprecated-register
 CXXFLAGS += -I$(MICROSCOPES_COMMON_REPO)/include
 ifneq ($(strip $(DEBUG)),1)
 	CXXFLAGS += -O3 -DNDEBUG
