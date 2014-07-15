@@ -12,30 +12,6 @@ using namespace microscopes::irm;
 using namespace microscopes::irm::detail;
 using namespace microscopes::models;
 
-// XXX: don't copy
-float
-domain::score_assignment() const
-{
-  map<size_t, size_t> counts;
-  MICROSCOPES_ASSERT(assignments_[0] != -1);
-  counts[assignments_[0]] = 1;
-  float sum = 0.;
-  for (size_t i = 1; i < assignments_.size(); i++) {
-    const ssize_t gid = assignments_[i];
-    MICROSCOPES_ASSERT(gid != -1);
-    const auto it = counts.find(gid);
-    const bool found = (it != counts.end());
-    const float numer = (!found) ? alpha_ : it->second;
-    const float denom = float(i) + alpha_;
-    sum += fast_log(numer / denom);
-    if (found)
-      it->second++;
-    else
-      counts[gid] = 1;
-  }
-  return sum;
-}
-
 state::state(const vector<size_t> &domains,
              const vector<relation_t> &relations)
   : domains_(), relations_()
@@ -182,9 +158,8 @@ state::initialize(const vector<vector<set<size_t>>> &clusters, const dataset_t &
   MICROSCOPES_DCHECK(clusters.size() == domains_.size(), "invalid number of clusterings");
   assert_correct_shape(d);
 
-  reset();
-
   for (size_t i = 0; i < domains_.size(); i++) {
+    MICROSCOPES_DCHECK(!domains_[i].ngroups(), "domain not empty");
     const auto &c = clusters[i];
     MICROSCOPES_DCHECK(c.size() > 0, "no clusters given!");
     for (size_t j = 0; j < c.size(); j++)
@@ -262,7 +237,7 @@ state::remove_value0(size_t domain, size_t eid, const dataset_t &d, rng_t &rng)
           this->eids_to_gids_under_relation(gids, eids, relation.desc_);
           this->remove_value_from_feature_group(gids, value, relation, rng);
       });
-  return domains_[domain].remove_value(eid);
+  return domains_[domain].remove_value(eid).first;
 }
 
 pair<vector<size_t>, vector<float>>
@@ -270,25 +245,24 @@ state::score_value0(size_t did, size_t eid, const dataset_t &d, rng_t &rng) cons
 {
   const auto &domain = domains_[did];
   MICROSCOPES_DCHECK(!domain.empty_groups().empty(), "no empty groups");
-  const auto &groups = domain.groups_;
 
   pair<vector<size_t>, vector<float>> ret;
-  ret.first.reserve(groups.size());
-  ret.second.reserve(groups.size());
+  ret.first.reserve(domain.ngroups());
+  ret.second.reserve(domain.ngroups());
 
-  const float empty_group_alpha = domain.alpha_ / float(domain.empty_groups().size());
-  size_t count = 0;
-  for (const auto &g : groups) {
-    float sum = fast_log(g.second ? float(g.second) : empty_group_alpha);
+  float pseudocounts = 0;
+  for (const auto &g : domain) {
+    const float pseudocount = domain.pseudocount(g.first, g.second);
+    float sum = fast_log(pseudocount);
     const_cast<state *>(this)->add_value0(did, g.first, eid, d, rng, &sum);
     const size_t gid = const_cast<state *>(this)->remove_value0(did, eid, d, rng);
     if (unlikely(gid != g.first))
       MICROSCOPES_ASSERT(false);
     ret.first.push_back(g.first);
     ret.second.push_back(sum);
-    count += g.second;
+    pseudocounts += pseudocount;
   }
-  const float lgnorm = fast_log(float(count) + domain.alpha_);
+  const float lgnorm = fast_log(pseudocounts);
   for (auto &s : ret.second)
     s -= lgnorm;
   return ret;
@@ -310,16 +284,4 @@ state::score_likelihood(size_t relation, rng_t &rng) const
   for (auto &p : relations_[relation].suffstats_table_)
     score += p.second.ss_->score_data(*m, rng);
   return score;
-}
-
-void
-state::reset()
-{
-  for (auto &d : domains_)
-    d.reset();
-  for (auto &r : relations_) {
-    r.suffstats_table_.clear();
-    r.ident_table_.clear();
-    r.ident_gen_ = 0;
-  }
 }

@@ -2,6 +2,7 @@
 
 #include <microscopes/common/sparse_ndarray/dataview.hpp>
 #include <microscopes/common/entity_state.hpp>
+#include <microscopes/common/group_manager.hpp>
 #include <microscopes/common/typedefs.hpp>
 #include <microscopes/common/macros.hpp>
 #include <microscopes/common/assert.hpp>
@@ -21,163 +22,9 @@
 namespace microscopes {
 namespace irm {
 
-class state; // forward decl
-
 namespace detail {
-
-/**
- * XXX: we are duplicating the group management code found in
- * microscopes::mixture::model::state. abstract that away
- */
-class domain {
-  friend class irm::state;
-public:
-  typedef io::CRP message_type;
-
-  domain(size_t n)
-    : alpha_(),
-      gcount_(),
-      gempty_(),
-      assignments_(n, -1),
-      groups_()
-  {}
-
-  inline common::hyperparam_bag_t
-  get_hp() const
-  {
-    message_type m;
-    m.set_alpha(alpha_);
-    std::ostringstream out;
-    m.SerializeToOstream(&out);
-    return out.str();
-  }
-
-  inline void
-  set_hp(const common::hyperparam_bag_t &hp)
-  {
-    std::istringstream inp(hp);
-    message_type m;
-    m.ParseFromIstream(&inp);
-    alpha_ = m.alpha();
-  }
-
-  inline common::value_mutator
-  get_hp_mutator(const std::string &key)
-  {
-    if (key == "alpha")
-      return common::value_mutator(&alpha_);
-    throw std::runtime_error("unknown key: " + key);
-  }
-
-  inline const std::vector<ssize_t> &
-  assignments() const
-  {
-    return assignments_;
-  }
-
-  inline const std::set<size_t> &
-  empty_groups() const
-  {
-    return gempty_;
-  }
-
-  inline size_t nentities() const { return assignments_.size(); }
-  inline size_t ngroups() const { return groups_.size(); }
-
-  inline bool
-  isactivegroup(size_t gid) const
-  {
-    return groups_.find(gid) != groups_.end();
-  }
-
-  inline size_t
-  groupsize(size_t gid) const
-  {
-    const auto it = groups_.find(gid);
-    MICROSCOPES_DCHECK(it != groups_.end(), "invalid gid");
-    return it->second;
-  }
-
-  inline std::vector<size_t>
-  groups() const
-  {
-    std::vector<size_t> ret;
-    ret.reserve(ngroups());
-    for (auto &g : groups_)
-      ret.push_back(g.first);
-    return ret;
-  }
-
-  inline size_t
-  create_group()
-  {
-    const size_t gid = gcount_++;
-    groups_[gid] = 0;
-    MICROSCOPES_ASSERT(!gempty_.count(gid));
-    gempty_.insert(gid);
-    return gid;
-  }
-
-  inline void
-  delete_group(size_t gid)
-  {
-    auto it = groups_.find(gid);
-    MICROSCOPES_DCHECK(it != groups_.end(), "invalid gid");
-    MICROSCOPES_DCHECK(!it->second, "group not empty");
-    MICROSCOPES_ASSERT(gempty_.count(gid));
-    groups_.erase(it);
-    gempty_.erase(gid);
-  }
-
-  inline void
-  add_value(size_t gid, size_t eid)
-  {
-    MICROSCOPES_DCHECK(assignments_.at(eid) == -1, "entity already assigned");
-    auto it = groups_.find(gid);
-    MICROSCOPES_DCHECK(it != groups_.end(), "invalid gid");
-    if (!it->second++) {
-      MICROSCOPES_ASSERT(gempty_.count(gid));
-      gempty_.erase(gid);
-      MICROSCOPES_ASSERT(!gempty_.count(gid));
-    } else {
-      MICROSCOPES_ASSERT(!gempty_.count(gid));
-    }
-    assignments_[eid] = gid;
-  }
-
-  inline size_t
-  remove_value(size_t eid)
-  {
-    MICROSCOPES_DCHECK(assignments_.at(eid) != -1, "entity not assigned");
-    const size_t gid = assignments_[eid];
-    auto it = groups_.find(gid);
-    MICROSCOPES_ASSERT(it != groups_.end());
-    MICROSCOPES_ASSERT(!gempty_.count(gid));
-    if (!--it->second)
-      gempty_.insert(gid);
-    assignments_[eid] = -1;
-    return gid;
-  }
-
-  float score_assignment() const;
-
-  void
-  reset()
-  {
-    gcount_ = 0;
-    gempty_.clear();
-    assignments_.assign(assignments_.size(), -1);
-    groups_.clear();
-  }
-
-protected:
-  float alpha_;
-  size_t gcount_;
-  std::set<size_t> gempty_;
-  std::vector<ssize_t> assignments_;
-  std::map<size_t, size_t> groups_;
-};
-
+struct _empty {};
+typedef common::group_manager<_empty> domain;
 } // namespace detail
 
 typedef std::vector<const common::sparse_ndarray::dataview *> dataset_t;
@@ -346,7 +193,7 @@ public:
   create_group(size_t domain)
   {
     MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain id");
-    return domains_[domain].create_group();
+    return domains_[domain].create_group().first;
   }
 
   inline void
@@ -439,8 +286,6 @@ protected:
   std::pair<std::vector<size_t>, std::vector<float>>
   score_value0(size_t did, size_t eid,
       const dataset_t &d, common::rng_t &rng) const;
-
-  void reset();
 
 private:
 
