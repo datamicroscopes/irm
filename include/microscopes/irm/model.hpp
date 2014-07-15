@@ -200,6 +200,21 @@ public:
   delete_group(size_t domain, size_t gid)
   {
     MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain id");
+    // XXX: see note in remove_value_from_feature_group()
+    // XXX: our GC strategy is currently inefficient
+    for (const auto &dr : domain_relations_[domain]) {
+      auto &relation = relations_[dr.rel_];
+      auto it = relation.suffstats_table_.begin();
+      while (it != relation.suffstats_table_.end()) {
+        if (it->first[dr.pos_] != gid) {
+          ++it;
+          continue;
+        }
+        MICROSCOPES_ASSERT(!it->second.count_);
+        relation.ident_table_.erase(it->second.ident_);
+        relation.suffstats_table_.erase(it++); // must use postfix add
+      }
+    }
     domains_[domain].delete_group(gid);
   }
 

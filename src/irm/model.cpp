@@ -68,6 +68,7 @@ state::add_value_to_feature_group(
     rng_t &rng,
     float *acc_score)
 {
+  MICROSCOPES_ASSERT(!value.anymasked());
   shared_ptr<feature_group> group;
   auto it = relation.suffstats_table_.find(gids);
   if (it == relation.suffstats_table_.end()) {
@@ -75,11 +76,11 @@ state::add_value_to_feature_group(
     auto &ss = relation.suffstats_table_[gids];
     ss.ident_ = relation.ident_gen_++;
     ss.count_ = 1;
+    MICROSCOPES_ASSERT(!ss.ss_);
     ss.ss_ = group;
     MICROSCOPES_ASSERT(relation.ident_table_.find(ss.ident_) == relation.ident_table_.end());
     relation.ident_table_[ss.ident_] = gids;
   } else {
-    MICROSCOPES_ASSERT(it->second.count_);
     it->second.count_++;
     group = it->second.ss_;
   }
@@ -97,6 +98,7 @@ state::remove_value_from_feature_group(
     rng_t &rng)
 {
   auto it = relation.suffstats_table_.find(gids);
+  MICROSCOPES_ASSERT(!value.anymasked());
   MICROSCOPES_ASSERT(it != relation.suffstats_table_.end());
   MICROSCOPES_ASSERT(it->second.count_);
   MICROSCOPES_ASSERT(it->second.ss_);
@@ -104,10 +106,19 @@ state::remove_value_from_feature_group(
       relation.ident_table_.find(it->second.ident_) != relation.ident_table_.end() &&
       relation.ident_table_[it->second.ident_] == gids);
   it->second.ss_->remove_value(*relation.desc_.model_, value, rng);
-  if (!--it->second.count_) {
-    relation.ident_table_.erase(it->second.ident_);
-    relation.suffstats_table_.erase(it);
-  }
+  it->second.count_--;
+  // XXX: unfortunately, we cannot clean this up now!! this is because for
+  // non-conjugate models, score_value() depends on the randomness we sampled
+  // in add_value_to_feature_group() for correctness. yes, this is quite hacky
+  // (for conjugate models, it is safe to delete here)
+  //
+  // note that, the point at which the suffstat can be GC-ed for non-conj
+  // models is when >= of the gids associated with it is no longer a valid gid
+  // (which should imply the count is zero also)
+  //if (!--it->second.count_) {
+  //  relation.ident_table_.erase(it->second.ident_);
+  //  relation.suffstats_table_.erase(it);
+  //}
 }
 
 void
