@@ -55,7 +55,9 @@ state::eids_to_gids_under_relation(
   gids.clear();
   gids.reserve(desc.domains_.size());
   for (size_t i = 0; i < desc.domains_.size(); i++) {
-    MICROSCOPES_ASSERT(domains_[desc.domains_[i]].assignments()[eids[i]] != -1);
+    MICROSCOPES_DCHECK(
+        domains_[desc.domains_[i]].assignments()[eids[i]] != -1,
+        "eid is not assigned to a valid group");
     gids.push_back(domains_[desc.domains_[i]].assignments()[eids[i]]);
   }
 }
