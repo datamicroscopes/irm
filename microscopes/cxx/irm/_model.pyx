@@ -58,6 +58,12 @@ cdef class state:
     def models(self):
         return [m for _, m in self._relations]
 
+    def ndomains(self):
+        return self._thisptr.get().ndomains()
+
+    def nentities(self, int domain):
+        return self._thisptr.get().nentities(domain)
+
     def groups(self, int domain):
         return [g for g in self._thisptr.get().groups(domain)]
 

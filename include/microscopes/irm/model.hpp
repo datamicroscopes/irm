@@ -50,6 +50,12 @@ public:
         const std::vector<relation_t> &relations);
 
   inline size_t
+  ndomains() const
+  {
+    return domains_.size();
+  }
+
+  inline size_t
   nentities(size_t domain) const
   {
     MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain");

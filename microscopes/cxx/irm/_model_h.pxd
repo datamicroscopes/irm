@@ -19,6 +19,9 @@ cdef extern from "microscopes/irm/model.hpp" namespace "microscopes::irm":
 
         state(const vector[size_t] &, const vector[relation_t] &) except +
 
+        size_t ndomains() 
+        size_t nentities(size_t) except +
+
         vector[size_t] groups(size_t) except +
 
         hyperparam_bag_t get_domain_hp(size_t) except +
