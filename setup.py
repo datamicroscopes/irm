@@ -63,7 +63,7 @@ if sys.platform.lower().startswith('darwin'):
 
 so_ext = 'dylib' if clang else 'so'
 
-min_cython_version = '0.20.2b1' if clang else '0.20.1'
+min_cython_version = '0.20.2' if clang else '0.20.1'
 if LooseVersion(cython_version) < LooseVersion(min_cython_version):
     raise ValueError(
         'cython support requires cython>={}'.format(min_cython_version))
@@ -115,6 +115,8 @@ if debug_build:
     extra_compile_args.append('-DDEBUG_MODE')
 
 include_dirs = [numpy.get_include()]
+if 'EXTRA_INCLUDE_PATH' in os.environ:
+    include_dirs.append(os.environ['EXTRA_INCLUDE_PATH'])
 if distributions_inc is not None:
     include_dirs.append(distributions_inc)
 if microscopes_common_inc is not None:
@@ -130,6 +132,10 @@ if microscopes_common_lib is not None:
 if microscopes_irm_lib is not None:
     library_dirs.append(microscopes_irm_lib)
 
+extra_link_args = []
+if 'EXTRA_LINK_ARGS' in os.environ:
+    extra_link_args.append(os.environ['EXTRA_LINK_ARGS'])
+
 def make_extension(module_name):
     sources = [module_name.replace('.', '/') + '.pyx']
     return Extension(
@@ -140,7 +146,8 @@ def make_extension(module_name):
         libraries=["microscopes_common", "microscopes_irm",
                    "protobuf", "distributions_shared"],
         library_dirs=library_dirs,
-        extra_compile_args=extra_compile_args)
+        extra_compile_args=extra_compile_args,
+        extra_link_args=extra_link_args)
 
 extensions = cythonize([
     make_extension('microscopes.cxx.irm.model'),
