@@ -27,6 +27,12 @@ def find_dependency(soname, incname):
         ret = test(os.environ['VIRTUAL_ENV'])
         if ret is not None:
             return ret[0], ret[1]
+    if 'CONDA_BUILD' in os.environ:
+        d = os.environ.get('PREFIX', None)
+        if d:
+            ret = test(d)
+            if ret is not None:
+                return ret[0], ret[1]
     if 'CONDA_DEFAULT_ENV' in os.environ:
         # shell out to conda to get info
         s = Popen(['conda', 'info', '--json'], shell=False, stdout=PIPE).stdout.read()
@@ -47,6 +53,12 @@ def find_cython_dependency(dirname):
         ret = test(os.environ['VIRTUAL_ENV'])
         if ret is not None:
             return ret
+    if 'CONDA_BUILD' in os.environ:
+        d = os.environ.get('PREFIX', None)
+        if d:
+            ret = test(d)
+            if ret is not None:
+                return ret
     if 'CONDA_DEFAULT_ENV' in os.environ:
         # shell out to conda to get info
         s = Popen(['conda', 'info', '--json'], shell=False, stdout=PIPE).stdout.read()
