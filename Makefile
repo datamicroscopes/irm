@@ -1,3 +1,19 @@
+all: release
+
+.PHONY: release
+release:
+	@echo "Setting up cmake (release)"
+	[ -d release ] || (mkdir release && cd release && eval `python ../cmake/print_cmake_command.py`)
+
+.PHONY: debug
+debug:
+	@echo "Setting up cmake (debug)"
+	[ -d debug ] || (mkdir debug && cd debug && eval `python ../cmake/print_cmake_command.py --debug`)
+
+.PHONY: test
+test:
+	(cd test && nosetests --verbose)
+
 .PHONY: travis_before_install
 travis_before_install:
 	(cd .travis && python before_install_microscopes_common.py)
