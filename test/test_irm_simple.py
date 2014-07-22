@@ -1,6 +1,8 @@
-from microscopes.cxx.irm.model import state, bind
+from microscopes.cxx.irm.model import initialize, bind
 from microscopes.cxx.common.sparse_ndarray.dataview import numpy_dataview
-from microscopes.cxx.models import bb
+from microscopes.models import bb
+from microscopes.irm.definition import model_definition
+from microscopes.cxx.common.rng import rng
 
 import numpy as np
 import numpy.ma as ma
@@ -9,15 +11,17 @@ import itertools as it
 def test_simple():
     domains = [5, 6]
 
-    relations = [ ((0, 1), bb) ]
+    relations = [((0, 1), bb)]
 
     raw_data = [ma.array(
                 np.random.choice([False,True], size=(domains[0], domains[1])),
                 mask=np.random.choice([False,True], size=(domains[0], domains[1])))]
 
+    defn = model_definition(domains, relations)
     data = map(numpy_dataview, raw_data)
 
-    s = state(domains, relations)
+    r = rng()
+    s = initialize(defn, data, r=r)
     bound_s0 = bind(s, 0, data)
     bound_s1 = bind(s, 1, data)
 

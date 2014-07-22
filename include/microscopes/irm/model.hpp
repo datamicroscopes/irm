@@ -56,11 +56,12 @@ typedef common::group_manager<_empty> domain;
 } // namespace detail
 
 typedef std::vector<const common::sparse_ndarray::dataview *> dataset_t;
+typedef detail::domain domain;
 
 class state {
-  friend class bound_state;
+  friend class model;
 public:
-  typedef detail::domain::message_type message_type;
+  typedef domain::message_type message_type;
   typedef std::vector<size_t> tuple_t;
 
   struct suffstats_t {
@@ -86,7 +87,7 @@ public:
   };
 
   state(const model_definition &defn,
-        const std::vector<detail::domain> &domains,
+        const std::vector<domain> &domains,
         const std::vector<relation_container_t> &relations);
 
   inline size_t
@@ -446,7 +447,7 @@ private:
     return ret;
   }
 
-  std::vector<detail::domain> domains_;
+  std::vector<domain> domains_;
   std::vector<std::vector<rel_pos_t>> domain_relations_;
   std::vector<relation_container_t> relations_;
 };
@@ -454,17 +455,19 @@ private:
 /**
  * The binds happen on a per-domain basis
  */
-class bound_state : public common::entity_based_state_object {
+class model : public common::entity_based_state_object {
 public:
-  bound_state(
-      const std::shared_ptr<state> &impl,
-      size_t domain,
-      const std::vector<std::shared_ptr<common::sparse_ndarray::dataview>> &data)
+  model(const std::shared_ptr<state> &impl,
+        size_t domain,
+        const std::vector<std::shared_ptr<common::sparse_ndarray::dataview>> &data)
     : impl_(impl), domain_(domain), data_(data), data_raw_()
   {
+    MICROSCOPES_DCHECK(impl.get(), "nullptr impl");
     data_raw_.reserve(data_.size());
-    for (auto &p : data_)
+    for (auto &p : data_) {
+      MICROSCOPES_DCHECK(p.get(), "nullptr dataview");
       data_raw_.push_back(p.get());
+    }
     impl_->assert_correct_shape(data_raw_);
   }
 

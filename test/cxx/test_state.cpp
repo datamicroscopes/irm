@@ -273,8 +273,8 @@ test3()
       {rel0view.get(), rel1view.get()},
       r);
 
-  bound_state s0(s, 0, {rel0view, rel1view});
-  bound_state s1(s, 1, {rel0view, rel1view});
+  microscopes::irm::model s0(s, 0, {rel0view, rel1view});
+  microscopes::irm::model s1(s, 1, {rel0view, rel1view});
 
   for (size_t i = 0; i < s0.nentities(); i++) {
     s0.remove_value(i, r);
