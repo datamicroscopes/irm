@@ -42,11 +42,11 @@ nich_hp(float mu=0., float kappa=1., float sigmasq=1., float nu=1.)
   return util::protobuf_to_string(m);
 }
 
-//static inline bool
-//almost_eq(float a, float b)
-//{
-//  return fabs(a - b) <= 1e-5;
-//}
+static inline bool
+almost_eq(float a, float b)
+{
+  return fabs(a - b) <= 1e-5;
+}
 
 template <typename T>
 static void assert_vectors_equal(const vector<T> &as, const vector<T> &bs)
@@ -360,15 +360,26 @@ test4()
     for (auto ident : s->suffstats_identifiers(i)) {
       MICROSCOPES_DCHECK(s->get_suffstats_count(i, ident) ==
           s1->get_suffstats_count(i, ident), "ss count");
-      if (i == 2) {
+      if (i == 1) {
         // nich
-        // XXX: implement check
-
+        MICROSCOPES_DCHECK(
+            s->get_suffstats_mutator(i, ident, "count").accessor().get<int>() ==
+            s1->get_suffstats_mutator(i, ident, "count").accessor().get<int>(), "count");
+        MICROSCOPES_DCHECK(
+            almost_eq(
+              s->get_suffstats_mutator(i, ident, "mean").accessor().get<float>(),
+              s1->get_suffstats_mutator(i, ident, "mean").accessor().get<float>()),
+            "mean");
+        MICROSCOPES_DCHECK(
+            almost_eq(
+              s->get_suffstats_mutator(i, ident, "count_times_variance").accessor().get<float>(),
+              s1->get_suffstats_mutator(i, ident, "count_times_variance").accessor().get<float>()),
+            "count_times_variance");
       } else {
         // bb
-        //MICROSCOPES_DCHECK(
-        //    s->get_suffstats_mutator(i, ident, "heads").accessor().get<int>() ==
-        //    s1->get_suffstats_mutator(i, ident, "heads").accessor().get<int>(), "heads");
+        MICROSCOPES_DCHECK(
+            s->get_suffstats_mutator(i, ident, "heads").accessor().get<int>() ==
+            s1->get_suffstats_mutator(i, ident, "heads").accessor().get<int>(), "heads");
       }
     }
   }
