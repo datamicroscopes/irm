@@ -22,6 +22,34 @@
 namespace microscopes {
 namespace irm {
 
+class relation_definition {
+public:
+  relation_definition() = default;
+  relation_definition(const std::vector<size_t> &domains,
+                      const std::shared_ptr<models::model> &model)
+    : domains_(domains), model_(model)
+  {
+    MICROSCOPES_DCHECK(domains.size(), "arity impossible");
+    MICROSCOPES_DCHECK(model.get(), "nullptr model");
+  }
+  inline const std::vector<size_t> & domains() const { return domains_; }
+  inline const std::shared_ptr<models::model> & model() const { return model_; }
+private:
+  std::vector<size_t> domains_;
+  std::shared_ptr<models::model> model_;
+};
+
+class model_definition {
+public:
+  model_definition(const std::vector<size_t> &domains,
+                   const std::vector<relation_definition> &relations);
+  inline const std::vector<size_t> & domains() const { return domains_; }
+  inline const std::vector<relation_definition> & relations() const { return relations_; }
+private:
+  std::vector<size_t> domains_;
+  std::vector<relation_definition> relations_;
+};
+
 namespace detail {
 struct _empty {};
 typedef common::group_manager<_empty> domain;
@@ -32,22 +60,34 @@ typedef std::vector<const common::sparse_ndarray::dataview *> dataset_t;
 class state {
   friend class bound_state;
 public:
-
   typedef detail::domain::message_type message_type;
-
   typedef std::vector<size_t> tuple_t;
 
-  struct relation_t {
-    relation_t() = default;
-    relation_t(const std::vector<size_t> &domains,
-               const std::shared_ptr<models::model> &model)
-      : domains_(domains), model_(model) {}
-    std::vector<size_t> domains_;
-    std::shared_ptr<models::model> model_;
+  struct suffstats_t {
+    suffstats_t() : ident_(), count_(), ss_() {}
+    common::ident_t ident_; // an identifier for outside naming
+    unsigned count_; // a ref count, so we know when to remove
+    std::shared_ptr<models::group> ss_;
   };
 
-  state(const std::vector<size_t> &domains,
-        const std::vector<relation_t> &relations);
+  struct relation_container_t {
+    relation_container_t()
+      : desc_(), hypers_(),
+        suffstats_table_(), ident_table_(), ident_gen_() {}
+    relation_container_t(const relation_definition &desc)
+      : desc_(desc), hypers_(desc.model()->create_hypers()),
+        suffstats_table_(), ident_table_(), ident_gen_() {}
+    void dump(io::IrmRelation &r) const;
+    relation_definition desc_;
+    std::shared_ptr<models::hypers> hypers_;
+    std::map<tuple_t, suffstats_t> suffstats_table_;
+    std::map<common::ident_t, tuple_t> ident_table_;
+    common::ident_t ident_gen_;
+  };
+
+  state(const model_definition &defn,
+        const std::vector<detail::domain> &domains,
+        const std::vector<relation_container_t> &relations);
 
   inline size_t
   ndomains() const
@@ -124,28 +164,28 @@ public:
   get_relation_hp(size_t relation) const
   {
     MICROSCOPES_DCHECK(relation < relations_.size(), "invalid relation id");
-    return relations_[relation].desc_.model_->get_hp();
+    return relations_[relation].hypers_->get_hp();
   }
 
   inline void
   set_relation_hp(size_t relation, const common::hyperparam_bag_t &hp)
   {
     MICROSCOPES_DCHECK(relation < relations_.size(), "invalid relation id");
-    relations_[relation].desc_.model_->set_hp(hp);
+    relations_[relation].hypers_->set_hp(hp);
   }
 
   inline void
-  set_relation_hp(size_t relation, const models::model &proto)
+  set_relation_hp(size_t relation, const models::hypers &proto)
   {
     MICROSCOPES_DCHECK(relation < relations_.size(), "invalid relation id");
-    relations_[relation].desc_.model_->set_hp(proto);
+    relations_[relation].hypers_->set_hp(proto);
   }
 
   inline common::value_mutator
   get_relation_hp_mutator(size_t relation, const std::string &key)
   {
     MICROSCOPES_DCHECK(relation < relations_.size(), "invalid relation id");
-    return relations_[relation].desc_.model_->get_hp_mutator(key);
+    return relations_[relation].hypers_->get_hp_mutator(key);
   }
 
   inline std::vector<common::ident_t>
@@ -224,8 +264,8 @@ public:
     domains_[domain].delete_group(gid);
   }
 
-  void random_initialize(const dataset_t &d, common::rng_t &rng);
-  void initialize(const std::vector< std::vector<std::set<size_t>> > &clusters, const dataset_t &d, common::rng_t &rng);
+  //void random_initialize(const dataset_t &d, common::rng_t &rng);
+  //void initialize(const std::vector< std::vector<std::set<size_t>> > &clusters, const dataset_t &d, common::rng_t &rng);
 
   inline void
   add_value(size_t domain, size_t gid, size_t eid, const dataset_t &d, common::rng_t &rng)
@@ -285,15 +325,42 @@ public:
   {
     MICROSCOPES_DCHECK(d.size() == relations_.size(), "#s dont match");
     for (size_t i = 0; i < d.size(); i++) {
-      MICROSCOPES_DCHECK(relations_[i].desc_.domains_.size() == d[i]->dims(), "arity does not match");
+      MICROSCOPES_DCHECK(relations_[i].desc_.domains().size() == d[i]->dims(), "arity does not match");
       for (size_t j = 0; j < d[i]->dims(); j++)
-        MICROSCOPES_DCHECK(domains_[relations_[i].desc_.domains_[j]].nentities() == d[i]->shape()[j], "shape does not match");
+        MICROSCOPES_DCHECK(domains_[relations_[i].desc_.domains()[j]].nentities() == d[i]->shape()[j], "shape does not match");
     }
   }
 
   // for testing
   std::vector< std::vector<size_t> >
   entity_data_positions(size_t domain, size_t eid, const dataset_t &d) const;
+
+  std::string serialize() const;
+
+  /**
+   * initialized to an **invalid** point in the state space!
+   *
+   * within each domain:
+   *   (A) no entities assigned
+   *   (B) no groups
+   *   (C) no hypers initialized
+   *
+   * useful primarily for testing purposes
+   */
+  static std::shared_ptr<state>
+  unsafe_initialize(const model_definition &defn);
+
+  static std::shared_ptr<state>
+  initialize(const model_definition &defn,
+             const std::vector<common::hyperparam_bag_t> &cluster_inits,
+             const std::vector<common::hyperparam_bag_t> &relation_inits,
+             const std::vector<std::vector<size_t>> &domain_assignments,
+             const dataset_t &data,
+             common::rng_t &rng);
+
+  static std::shared_ptr<state>
+  deserialize(const model_definition &defn,
+              const common::serialized_t &s);
 
 protected:
   // the *_value0 methods do no error checking
@@ -317,28 +384,11 @@ private:
     size_t pos_;
   };
 
-  struct suffstats_t {
-    suffstats_t() : ident_(), count_(), ss_() {}
-    common::ident_t ident_; // an identifier for outside naming
-    unsigned count_; // a ref count, so we know when to remove
-    std::shared_ptr<models::feature_group> ss_;
-  };
-
-  struct relation_container_t {
-    relation_container_t() : desc_(), suffstats_table_(), ident_table_(), ident_gen_() {}
-    relation_container_t(const relation_t &desc)
-      : desc_(desc), suffstats_table_(), ident_table_(), ident_gen_() {}
-    relation_t desc_;
-    std::map<tuple_t, suffstats_t> suffstats_table_;
-    std::map<common::ident_t, tuple_t> ident_table_;
-    common::ident_t ident_gen_;
-  };
-
   void
   eids_to_gids_under_relation(
       std::vector<size_t> &gids,
       const std::vector<size_t> &eids,
-      const relation_t &desc) const;
+      const relation_definition &desc) const;
 
   void
   add_value_to_feature_group(
@@ -388,7 +438,7 @@ private:
   {
     std::vector<rel_pos_t> ret;
     for (size_t r = 0; r < relations_.size(); r++) {
-      const auto &ds = relations_[r].desc_.domains_;
+      const auto &ds = relations_[r].desc_.domains();
       for (size_t pos = 0; pos < ds.size(); pos++)
         if (ds[pos] == d)
           ret.emplace_back(r, pos);
@@ -440,7 +490,7 @@ public:
 
   common::hyperparam_bag_t get_component_hp(size_t component) const override { return impl_->get_relation_hp(component); }
   void set_component_hp(size_t component, const common::hyperparam_bag_t &hp) override { impl_->set_relation_hp(component, hp); }
-  void set_component_hp(size_t component, const models::model &proto) override { impl_->set_relation_hp(component, proto); }
+  void set_component_hp(size_t component, const models::hypers &proto) override { impl_->set_relation_hp(component, proto); }
   common::value_mutator get_component_hp_mutator(size_t component, const std::string &key) override { return impl_->get_relation_hp_mutator(component, key); }
 
   std::vector<common::ident_t>
