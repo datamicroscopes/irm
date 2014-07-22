@@ -86,8 +86,7 @@ public:
     common::ident_t ident_gen_;
   };
 
-  state(const model_definition &defn,
-        const std::vector<domain> &domains,
+  state(const std::vector<domain> &domains,
         const std::vector<relation_container_t> &relations);
 
   inline size_t
@@ -264,9 +263,6 @@ public:
     }
     domains_[domain].delete_group(gid);
   }
-
-  //void random_initialize(const dataset_t &d, common::rng_t &rng);
-  //void initialize(const std::vector< std::vector<std::set<size_t>> > &clusters, const dataset_t &d, common::rng_t &rng);
 
   inline void
   add_value(size_t domain, size_t gid, size_t eid, const dataset_t &d, common::rng_t &rng)

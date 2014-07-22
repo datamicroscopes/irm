@@ -13,30 +13,6 @@ using namespace microscopes::irm::detail;
 using namespace microscopes::io;
 using namespace microscopes::models;
 
-//static inline void
-//AssertAllEntitiesAccounted(const vector<set<size_t>> &c, size_t n)
-//{
-//  vector<bool> ents(n, false);
-//  for (const auto &s : c)
-//    for (auto eid : s) {
-//      MICROSCOPES_DCHECK(eid < ents.size(), "bad eid given");
-//      MICROSCOPES_DCHECK(!ents[eid], "eid given twice");
-//      ents[eid] = true;
-//    }
-//  for (auto b : ents)
-//    MICROSCOPES_DCHECK(b, "ent unaccounted for");
-//}
-
-static void
-AssertRelationDefinitionPossible(
-  const model_definition &model,
-  const relation_definition &relation)
-{
-  for (auto d : relation.domains())
-    MICROSCOPES_DCHECK(d < model.domains().size(),
-        "invalid domain given");
-}
-
 model_definition::model_definition(
     const vector<size_t> &domains,
     const vector<relation_definition> &relations)
@@ -52,24 +28,13 @@ model_definition::model_definition(
   }
 }
 
-state::state(const model_definition &defn,
-             const vector<domain> &domains,
+state::state(const vector<domain> &domains,
              const vector<relation_container_t> &relations)
   : domains_(domains), relations_(relations)
 {
-  // very little effort made to validate inputs
-  MICROSCOPES_DCHECK(defn.domains().size() == domains.size(),
-      "# domains mismatch");
-  MICROSCOPES_DCHECK(defn.relations().size() == relations.size(),
-      "# relations mismatch");
   domain_relations_.reserve(domains_.size());
   for (size_t i = 0; i < domains_.size(); i++)
     domain_relations_.emplace_back(domain_relations(i));
-  for (size_t i = 0; i < defn.domains().size(); i++)
-    MICROSCOPES_DCHECK(defn.domains()[i] == domains[i].nentities(),
-      "# entities mismatch");
-  for (const auto &r : relations)
-    AssertRelationDefinitionPossible(defn, r.desc_);
 }
 
 void
@@ -190,60 +155,6 @@ state::entity_data_positions(size_t domain, size_t eid, const dataset_t &d) cons
       });
   return ret;
 }
-
-//void
-//state::initialize(const vector<vector<set<size_t>>> &clusters, const dataset_t &d, rng_t &rng)
-//{
-//  MICROSCOPES_DCHECK(clusters.size() == domains_.size(), "invalid number of clusterings");
-//  assert_correct_shape(d);
-//
-//  for (size_t i = 0; i < domains_.size(); i++) {
-//    MICROSCOPES_DCHECK(!domains_[i].ngroups(), "domain not empty");
-//    const auto &c = clusters[i];
-//    MICROSCOPES_DCHECK(c.size() > 0, "no clusters given!");
-//    for (size_t j = 0; j < c.size(); j++)
-//      domains_[i].create_group();
-//    AssertAllEntitiesAccounted(c, domains_[i].nentities());
-//    for (size_t j = 0; j < c.size(); j++)
-//      for (auto eid : c[j])
-//        domains_[i].add_value(j, eid);
-//  }
-//#ifdef DEBUG_MODE
-//  for (auto &d : domains_)
-//    for (auto s : d.assignments())
-//      MICROSCOPES_DCHECK(s != -1, "assignments should all be filled");
-//#endif
-//
-//  vector<size_t> gids;
-//  for (size_t i = 0; i < relations_.size(); i++) {
-//    auto &relation = relations_[i];
-//    for (const auto &p : *d[i]) {
-//      eids_to_gids_under_relation(gids, p.first, relation.desc_);
-//      add_value_to_feature_group(gids, p.second, relation, rng, nullptr);
-//    }
-//  }
-//}
-//
-//void
-//state::random_initialize(const dataset_t &d, rng_t &rng)
-//{
-//  assert_correct_shape(d);
-//  vector<vector<set<size_t>>> clusters;
-//  clusters.reserve(domains_.size());
-//  for (auto &d : domains_) {
-//    vector<set<size_t>> cluster;
-//    // create min(100, n/2) + 1 groups
-//    const size_t ngroups = min(size_t(100), d.nentities()) + 1;
-//    cluster.resize(ngroups);
-//    const auto groups = util::range(ngroups);
-//    for (size_t i = 0; i < d.nentities(); i++) {
-//      const auto choice = util::sample_choice(groups, rng);
-//      cluster[choice].insert(i);
-//    }
-//    clusters.emplace_back(cluster);
-//  }
-//  initialize(clusters, d, rng);
-//}
 
 void
 state::add_value0(size_t domain, size_t gid, size_t eid, const dataset_t &d, rng_t &rng, float *acc_score)
@@ -367,7 +278,7 @@ state::unsafe_initialize(const model_definition &defn)
     reln.desc_ = r;
     reln.hypers_ = r.model()->create_hypers();
   }
-  return make_shared<state>(defn, domains, relations);
+  return make_shared<state>(domains, relations);
 }
 
 shared_ptr<state>
@@ -473,5 +384,5 @@ state::deserialize(const model_definition &defn, const serialized_t &s)
     relations.emplace_back(reln);
   }
 
-  return make_shared<state>(defn, domains, relations);
+  return make_shared<state>(domains, relations);
 }
