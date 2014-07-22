@@ -31,6 +31,38 @@ beta_bernoulli_hp(float alpha, float beta)
   return util::protobuf_to_string(m_feature_hp);
 }
 
+static inline hyperparam_bag_t
+nich_hp(float mu=0., float kappa=1., float sigmasq=1., float nu=1.)
+{
+  distributions_hypers<NormalInverseChiSq>::message_type m;
+  m.set_mu(mu);
+  m.set_kappa(kappa);
+  m.set_sigmasq(sigmasq);
+  m.set_nu(nu);
+  return util::protobuf_to_string(m);
+}
+
+//static inline bool
+//almost_eq(float a, float b)
+//{
+//  return fabs(a - b) <= 1e-5;
+//}
+
+template <typename T>
+static void assert_vectors_equal(const vector<T> &as, const vector<T> &bs)
+{
+  MICROSCOPES_DCHECK(as.size() == bs.size(), "size");
+  for (size_t i = 0; i < as.size(); i++)
+    MICROSCOPES_DCHECK(as[i] == bs[i], "element");
+}
+
+template <typename T>
+static void assert_sets_equal(const set<T> &as, const set<T> &bs)
+{
+  assert_vectors_equal(vector<T>(as.begin(), as.end()),
+                       vector<T>(bs.begin(), bs.end()));
+}
+
 static void
 test1()
 {
@@ -172,13 +204,15 @@ test2()
   delete [] masks;
 }
 
-static pair<unique_ptr<bool[]>, unique_ptr<bool[]>>
+template <typename T>
+static pair<unique_ptr<typename T::result_type[]>, unique_ptr<bool []>>
 binary_relation_generate(
     size_t domain0, size_t domain1,
-    float p0, float p1,
+    float p0, T sampler,
     rng_t &r)
 {
-  unique_ptr<bool[]> data(new bool[domain0*domain1]);
+  typedef typename T::result_type value_type;
+  unique_ptr<value_type[]> data(new value_type[domain0*domain1]);
   unique_ptr<bool[]> mask(new bool[domain0*domain1]);
 
   for (size_t x = 0; x < domain0; x++) {
@@ -186,7 +220,7 @@ binary_relation_generate(
       const size_t idx = x*domain1 + y;
       if (bernoulli_distribution(p0)(r)) {
         mask[idx] = false;
-        data[idx] = bernoulli_distribution(p1)(r);
+        data[idx] = sampler(r);
       } else {
         mask[idx] = true;
       }
@@ -211,11 +245,11 @@ test3()
 
   auto rel0 = binary_relation_generate(
       domains[0], domains[1],
-      0.2, 0.8, r);
+      0.2, bernoulli_distribution(0.8), r);
 
   auto rel1 = binary_relation_generate(
       domains[1], domains[1],
-      0.3, 0.7, r);
+      0.3, bernoulli_distribution(0.7), r);
 
   shared_ptr<dataview> rel0view(
     new row_major_dense_dataview(
@@ -257,11 +291,95 @@ test3()
   }
 }
 
+static void
+test4()
+{
+  random_device rd;
+  rng_t r(rd());
+  const vector<size_t> domains({10, 5, 3});
+
+  const model_definition defn(
+      domains,
+      {relation_definition({0,1}, make_shared<distributions_model<BetaBernoulli>>()),
+       relation_definition({2,1}, make_shared<distributions_model<NormalInverseChiSq>>()),
+       relation_definition({0,2}, make_shared<distributions_model<BetaBernoulli>>())});
+
+  auto rel0 = binary_relation_generate(
+      domains[0], domains[1],
+      0.2, bernoulli_distribution(0.8), r);
+
+  auto rel1 = binary_relation_generate(
+      domains[2], domains[1],
+      0.3, normal_distribution<float>(), r);
+
+  auto rel2 = binary_relation_generate(
+      domains[0], domains[2],
+      0.1, bernoulli_distribution(0.2), r);
+
+  shared_ptr<dataview> rel0view(
+    new row_major_dense_dataview(
+        reinterpret_cast<uint8_t*>(rel0.first.get()),
+        rel0.second.get(),
+        {domains[0], domains[1]},
+        runtime_type(TYPE_B)));
+
+  shared_ptr<dataview> rel1view(
+    new row_major_dense_dataview(
+        reinterpret_cast<uint8_t*>(rel1.first.get()),
+        rel1.second.get(),
+        {domains[2], domains[1]},
+        runtime_type(TYPE_F32)));
+
+  shared_ptr<dataview> rel2view(
+    new row_major_dense_dataview(
+        reinterpret_cast<uint8_t*>(rel2.first.get()),
+        rel2.second.get(),
+        {domains[0], domains[2]},
+        runtime_type(TYPE_B)));
+
+  auto s = state::initialize(
+      defn,
+      {crp_hp(2.0), crp_hp(20.0), crp_hp(10.0)},
+      {beta_bernoulli_hp(2., 2.), nich_hp(), beta_bernoulli_hp(2., 3.)},
+      {{}, {}, {}},
+      {rel0view.get(), rel1view.get(), rel2view.get()},
+      r);
+
+  const auto raw = s->serialize();
+  const auto s1 = state::deserialize(defn, raw);
+  MICROSCOPES_DCHECK(s->ndomains() == s1->ndomains(), "ndomains");
+  for (size_t i = 0; i < s->ndomains(); i++) {
+    assert_vectors_equal(s->assignments(i), s1->assignments(i));
+    assert_vectors_equal(s->groups(i), s1->groups(i));
+    assert_sets_equal(s->empty_groups(i), s1->empty_groups(i));
+  }
+
+  MICROSCOPES_DCHECK(s->nrelations() == s1->nrelations(), "nrelations");
+  for (size_t i = 0; i < s->nrelations(); i++) {
+    assert_vectors_equal(s->suffstats_identifiers(i), s1->suffstats_identifiers(i));
+    for (auto ident : s->suffstats_identifiers(i)) {
+      MICROSCOPES_DCHECK(s->get_suffstats_count(i, ident) ==
+          s1->get_suffstats_count(i, ident), "ss count");
+      if (i == 2) {
+        // nich
+        // XXX: implement check
+
+      } else {
+        // bb
+        //MICROSCOPES_DCHECK(
+        //    s->get_suffstats_mutator(i, ident, "heads").accessor().get<int>() ==
+        //    s1->get_suffstats_mutator(i, ident, "heads").accessor().get<int>(), "heads");
+      }
+    }
+  }
+}
+
 int
 main(void)
 {
   test1();
   test2();
   test3();
+  test4();
   return 0;
 }
