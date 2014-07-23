@@ -84,10 +84,10 @@ cdef class state:
                     if not len(assignment):
                         c_domain_assignments.push_back(vector[size_t]())
                     else:
-                        if len(assignment) != len(defn._domains[did]):
+                        if len(assignment) != defn._domains[did]:
                             raise ValueError(
                                 "expecting {} assignments, got {}".format(
-                                    len(defn._domains[did]),
+                                    defn._domains[did],
                                     len(assignment)))
                         c_assignment.clear()
                         for i in assignment:
