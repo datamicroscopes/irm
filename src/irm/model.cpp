@@ -20,12 +20,14 @@ model_definition::model_definition(
 {
   MICROSCOPES_DCHECK(domains.size(), "no domains given");
   MICROSCOPES_DCHECK(relations.size(), "no relations given");
+#ifdef DEBUG_BUILD
   for (auto s : domains)
     MICROSCOPES_DCHECK(s, "empty domain given");
   for (const auto &r : relations) {
     for (auto d : r.domains())
       MICROSCOPES_DCHECK(d < domains.size(), "invalid domain given");
   }
+#endif
 }
 
 state::state(const vector<domain> &domains,
@@ -190,15 +192,18 @@ state::remove_value0(size_t domain, size_t eid, const dataset_t &d, rng_t &rng)
   return domains_[domain].remove_value(eid).first;
 }
 
-pair<vector<size_t>, vector<float>>
-state::score_value0(size_t did, size_t eid, const dataset_t &d, rng_t &rng) const
+void
+state::inplace_score_value0(
+    pair<vector<size_t>, vector<float>> &scores,
+    size_t did, size_t eid, const dataset_t &d, rng_t &rng) const
 {
   const auto &domain = domains_[did];
   MICROSCOPES_DCHECK(!domain.empty_groups().empty(), "no empty groups");
 
-  pair<vector<size_t>, vector<float>> ret;
-  ret.first.reserve(domain.ngroups());
-  ret.second.reserve(domain.ngroups());
+  scores.first.clear();
+  scores.second.clear();
+  scores.first.reserve(domain.ngroups());
+  scores.second.reserve(domain.ngroups());
 
   float pseudocounts = 0;
   for (const auto &g : domain) {
@@ -208,14 +213,14 @@ state::score_value0(size_t did, size_t eid, const dataset_t &d, rng_t &rng) cons
     const size_t gid = const_cast<state *>(this)->remove_value0(did, eid, d, rng);
     if (unlikely(gid != g.first))
       MICROSCOPES_ASSERT(false);
-    ret.first.push_back(g.first);
-    ret.second.push_back(sum);
+    scores.first.push_back(g.first);
+    scores.second.push_back(sum);
     pseudocounts += pseudocount;
   }
+
   const float lgnorm = fast_log(pseudocounts);
-  for (auto &s : ret.second)
+  for (auto &s : scores.second)
     s -= lgnorm;
-  return ret;
 }
 
 float

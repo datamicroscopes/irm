@@ -283,9 +283,19 @@ public:
   std::pair<std::vector<size_t>, std::vector<float>>
   score_value(size_t domain, size_t eid, const dataset_t &d, common::rng_t &rng) const
   {
+    std::pair<std::vector<size_t>, std::vector<float>> ret;
+    inplace_score_value(ret, domain, eid, d, rng);
+    return ret;
+  }
+
+  void
+  inplace_score_value(
+      std::pair<std::vector<size_t>, std::vector<float>> &scores,
+      size_t domain, size_t eid, const dataset_t &d, common::rng_t &rng) const
+  {
     MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain");
     assert_correct_shape(d);
-    return score_value0(domain, eid, d, rng);
+    inplace_score_value0(scores, domain, eid, d, rng);
   }
 
   inline float
@@ -368,8 +378,10 @@ protected:
   size_t remove_value0(size_t domain, size_t eid,
       const dataset_t &d, common::rng_t &rng);
 
-  std::pair<std::vector<size_t>, std::vector<float>>
-  score_value0(size_t did, size_t eid,
+  void
+  inplace_score_value0(
+      std::pair<std::vector<size_t>, std::vector<float>> &scores,
+      size_t did, size_t eid,
       const dataset_t &d, common::rng_t &rng) const;
 
 private:
@@ -527,7 +539,15 @@ public:
   std::pair<std::vector<size_t>, std::vector<float>>
   score_value(size_t eid, common::rng_t &rng) const override
   {
-    return impl_->score_value0(domain_, eid, data_raw_, rng);
+    return impl_->score_value(domain_, eid, data_raw_, rng);
+  }
+
+  void
+  inplace_score_value(
+      std::pair<std::vector<size_t>, std::vector<float>> &scores,
+      size_t eid, common::rng_t &rng) const override
+  {
+    impl_->inplace_score_value0(scores, domain_, eid, data_raw_, rng);
   }
 
   float score_assignment() const override { return impl_->score_assignment(domain_); }

@@ -51,9 +51,9 @@ almost_eq(float a, float b)
 template <typename T>
 static void assert_vectors_equal(const vector<T> &as, const vector<T> &bs)
 {
-  MICROSCOPES_DCHECK(as.size() == bs.size(), "size");
+  MICROSCOPES_CHECK(as.size() == bs.size(), "size");
   for (size_t i = 0; i < as.size(); i++)
-    MICROSCOPES_DCHECK(as[i] == bs[i], "element");
+    MICROSCOPES_CHECK(as[i] == bs[i], "element");
 }
 
 template <typename T>
@@ -118,7 +118,7 @@ test1()
   size_t sum = 0;
   for (auto ident : s->suffstats_identifiers(0))
     sum += s->get_suffstats_count(0, ident);
-  MICROSCOPES_DCHECK(sum == present, "suff stats don't match up");
+  MICROSCOPES_CHECK(sum == present, "suff stats don't match up");
 
   const size_t gid = s->remove_value(0, 0, {view.get()}, r);
   s->add_value(0, gid, 0, {view.get()}, r);
@@ -126,7 +126,7 @@ test1()
   sum = 0;
   for (auto ident : s->suffstats_identifiers(0))
     sum += s->get_suffstats_count(0, ident);
-  MICROSCOPES_DCHECK(sum == present, "suff stats don't match up");
+  MICROSCOPES_CHECK(sum == present, "suff stats don't match up");
 }
 
 static void
@@ -181,7 +181,7 @@ test2()
   size_t sum = 0;
   for (auto ident : s->suffstats_identifiers(0))
     sum += s->get_suffstats_count(0, ident);
-  MICROSCOPES_DCHECK(sum == present, "suff stats don't match up");
+  MICROSCOPES_CHECK(sum == present, "suff stats don't match up");
 
   // score the 1st data point
   const size_t gid = s->remove_value(0, 0, {view.get()}, r);
@@ -198,7 +198,7 @@ test2()
   sum = 0;
   for (auto ident : s->suffstats_identifiers(0))
     sum += s->get_suffstats_count(0, ident);
-  MICROSCOPES_DCHECK(!sum, "suff stats don't match up");
+  MICROSCOPES_CHECK(!sum, "suff stats don't match up");
 
   delete [] likes;
   delete [] masks;
@@ -347,37 +347,37 @@ test4()
 
   const auto raw = s->serialize();
   const auto s1 = state::deserialize(defn, raw);
-  MICROSCOPES_DCHECK(s->ndomains() == s1->ndomains(), "ndomains");
+  MICROSCOPES_CHECK(s->ndomains() == s1->ndomains(), "ndomains");
   for (size_t i = 0; i < s->ndomains(); i++) {
     assert_vectors_equal(s->assignments(i), s1->assignments(i));
     assert_vectors_equal(s->groups(i), s1->groups(i));
     assert_sets_equal(s->empty_groups(i), s1->empty_groups(i));
   }
 
-  MICROSCOPES_DCHECK(s->nrelations() == s1->nrelations(), "nrelations");
+  MICROSCOPES_CHECK(s->nrelations() == s1->nrelations(), "nrelations");
   for (size_t i = 0; i < s->nrelations(); i++) {
     assert_vectors_equal(s->suffstats_identifiers(i), s1->suffstats_identifiers(i));
     for (auto ident : s->suffstats_identifiers(i)) {
-      MICROSCOPES_DCHECK(s->get_suffstats_count(i, ident) ==
+      MICROSCOPES_CHECK(s->get_suffstats_count(i, ident) ==
           s1->get_suffstats_count(i, ident), "ss count");
       if (i == 1) {
         // nich
-        MICROSCOPES_DCHECK(
+        MICROSCOPES_CHECK(
             s->get_suffstats_mutator(i, ident, "count").accessor().get<int>() ==
             s1->get_suffstats_mutator(i, ident, "count").accessor().get<int>(), "count");
-        MICROSCOPES_DCHECK(
+        MICROSCOPES_CHECK(
             almost_eq(
               s->get_suffstats_mutator(i, ident, "mean").accessor().get<float>(),
               s1->get_suffstats_mutator(i, ident, "mean").accessor().get<float>()),
             "mean");
-        MICROSCOPES_DCHECK(
+        MICROSCOPES_CHECK(
             almost_eq(
               s->get_suffstats_mutator(i, ident, "count_times_variance").accessor().get<float>(),
               s1->get_suffstats_mutator(i, ident, "count_times_variance").accessor().get<float>()),
             "count_times_variance");
       } else {
         // bb
-        MICROSCOPES_DCHECK(
+        MICROSCOPES_CHECK(
             s->get_suffstats_mutator(i, ident, "heads").accessor().get<int>() ==
             s1->get_suffstats_mutator(i, ident, "heads").accessor().get<int>(), "heads");
       }
