@@ -346,7 +346,7 @@ state::deserialize(const model_definition &defn, const serialized_t &s)
   IrmState m;
   util::protobuf_from_string(m, s);
 
-  MICROSCOPES_DCHECK(m.domains_size() == defn.domains().size(),
+  MICROSCOPES_DCHECK((size_t)m.domains_size() == defn.domains().size(),
       "# domains mismatch");
   vector<domain> domains;
   domains.reserve(defn.domains().size());
@@ -354,7 +354,7 @@ state::deserialize(const model_definition &defn, const serialized_t &s)
     domains.emplace_back(
         m.domains(i), [](const string &) { return _empty(); });
 
-  MICROSCOPES_DCHECK(m.relations_size() == defn.relations().size(),
+  MICROSCOPES_DCHECK((size_t)m.relations_size() == defn.relations().size(),
       "# relations mismatch");
   vector<relation_container_t> relations;
   relations.reserve(defn.relations().size());
@@ -369,7 +369,7 @@ state::deserialize(const model_definition &defn, const serialized_t &s)
     for (size_t j = 0; j < size_t(r.suffstats_size()); j++) {
       suffstats_t suffstat;
       const auto &ss = r.suffstats(j);
-      MICROSCOPES_DCHECK(ss.gids_size() == rdef.domains().size(),
+      MICROSCOPES_DCHECK((size_t)ss.gids_size() == rdef.domains().size(),
           "arity mismatch");
       tuple_t gids;
       gids.reserve(ss.gids_size());
