@@ -95,6 +95,8 @@ public:
     return domains_.size();
   }
 
+  inline size_t nrelations() const { return relations_.size(); }
+
   inline size_t
   nentities(size_t domain) const
   {
@@ -130,14 +132,19 @@ public:
     return domains_[domain].empty_groups();
   }
 
+  inline bool
+  isactivegroup(size_t domain, size_t gid) const
+  {
+    MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain");
+    return domains_[domain].isactivegroup(gid);
+  }
+
   inline size_t
   groupsize(size_t domain, size_t gid) const
   {
     MICROSCOPES_DCHECK(domain < domains_.size(), "invalid domain");
     return domains_[domain].groupsize(gid);
   }
-
-  inline size_t nrelations() const { return relations_.size(); }
 
   inline common::hyperparam_bag_t
   get_domain_hp(size_t domain) const

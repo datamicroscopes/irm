@@ -1,10 +1,14 @@
+# python imports
+from microscopes.cxx.common._rng import rng
+from microscopes.cxx.common.sparse_ndarray._dataview import \
+    abstract_dataview
+from microscopes.irm.definition import model_definition
+from microscopes.common import validator
 from microscopes.io.schema_pb2 import CRP
 
 def _check_relations(relations):
     for reln in relations:
-        if not isinstance(reln, abstract_dataview):
-            raise ValueError(
-                "expected abstract_dataview, got {}".format(repr(reln)))
+        validator.validate_type(reln, abstract_dataview)
 
 cdef vector[shared_ptr[c_dataview]] get_crelations(relations):
     cdef vector[shared_ptr[c_dataview]] crelations
@@ -22,11 +26,15 @@ cdef class state:
     def __cinit__(self, model_definition defn, **kwargs):
         self._defn = defn
 
-        # note: python cannot overload __cinit__(), so we 
+        # note: python cannot overload __cinit__(), so we
         # use kwargs to handle both the random initialization case and
         # the deserialize from string case
         if not (('data' in kwargs) ^ ('bytes' in kwargs)):
             raise ValueError("need exaclty one of `data' or `bytes'")
+
+        valid_kwargs = ('data', 'bytes', 'r',
+                'cluster_hps', 'relation_hps', 'domain_assignments',)
+        validator.validate_kwargs(kwargs, valid_kwargs)
 
         cdef vector[hyperparam_bag_t] c_cluster_hps
         cdef vector[hyperparam_bag_t] c_relation_hps
@@ -36,19 +44,18 @@ cdef class state:
         if 'data' in kwargs:
             # handle the random initialization case
             data = list(kwargs['data'])
-            if len(data) != len(defn._relations):
-                raise ValueError("expecting {} relations, got {}".format(
-                    len(defn._relations), len(data)))
+            validator.validate_len(data, len(defn._relations), "data")
             _check_relations(data)
 
             if 'r' not in kwargs:
                 raise ValueError("need parameter `r'")
             r = kwargs['r']
-            if not isinstance(r, rng):
-                raise ValueError("need prng for parameter `r'")
+            validator.validate_type(r, rng, "r")
 
             if 'cluster_hps' in kwargs:
                 cluster_hps = list(kwargs['cluster_hps'])
+                validator.validate_len(
+                    cluster_hps, len(defn._domains), "cluster_hps")
             else:
                 cluster_hps = [{'alpha':1.}]*len(defn._domains)
 
@@ -61,11 +68,10 @@ cdef class state:
 
             if 'relation_hps' in kwargs:
                 relation_hps = list(kwargs['relation_hps'])
-                if len(relation_hps) != len(defn._relations):
-                    raise ValueError("expecting {} models, got {}".format(
-                        len(relation_hps), len(defn._relations)))
+                validator.validate_len(
+                    relation_hps, len(defn._relations), "relation_hps")
             else:
-                relation_hps = [m.default_params() for _, m in defn._relations] 
+                relation_hps = [m.default_params() for _, m in defn._relations]
 
             relation_hps_bytes = [
                 m.py_desc().shared_dict_to_bytes(hp) \
@@ -73,24 +79,21 @@ cdef class state:
             for s in relation_hps_bytes:
                 c_relation_hps.push_back(s)
 
-            if 'domain_assignments' in kwargs: 
+            if 'domain_assignments' in kwargs:
                 domain_assignments = list(kwargs['domain_assignments'])
-                if len(domain_assignments) != len(defn._domains):
-                    raise ValueError(
-                        "expecting {} domain assignments, got {}".format(
-                            len(defn._domains), len(domain_assignments)))
+                validator.validate_len(
+                    domain_assignments,
+                    len(defn._domains),
+                    "domain_assignments")
                 for did, assignment in enumerate(domain_assignments):
                     assignment = list(assignment)
                     if not len(assignment):
                         c_domain_assignments.push_back(vector[size_t]())
                     else:
-                        if len(assignment) != defn._domains[did]:
-                            raise ValueError(
-                                "expecting {} assignments, got {}".format(
-                                    defn._domains[did],
-                                    len(assignment)))
+                        validator.validate_len(assignment, defn._domains[did])
                         c_assignment.clear()
                         for i in assignment:
+                            validator.validate_nonnegative(i)
                             c_assignment.push_back(i)
                         c_domain_assignments.push_back(c_assignment)
             else:
@@ -116,41 +119,87 @@ cdef class state:
     def models(self):
         return [m for _, m in self._defn._relations]
 
+    def _validate_did(self, did, param_name=None):
+        validator.validate_in_range(did, self.ndomains(), param_name)
+
+    def _validate_rid(self, rid, param_name=None):
+        validator.validate_in_range(rid, self.nrelations(), param_name)
+
+    def _validate_eid(self, did, eid):
+        validator.validate_in_range(eid, self.nentities(did))
+
+    def _validate_gid(self, did, gid):
+        if not self.isactivegroup(did, gid):
+            raise ValueError("invalid gid")
+
     def ndomains(self):
-        return self._thisptr.get().ndomains()
+        return len(self._defn._domains)
+
+    def nrelations(self):
+        return len(self._defn._relations)
 
     def nentities(self, int domain):
+        self._validate_did(domain, "domain")
         return self._thisptr.get().nentities(domain)
 
+    def ngroups(self, int domain):
+        self._validate_did(domain, "domain")
+        return self._thisptr.get().ngroups(domain)
+
+    def assignments(self, int domain):
+        self._validate_did(domain, "domain")
+
     def groups(self, int domain):
+        self._validate_did(domain, "domain")
         return [g for g in self._thisptr.get().groups(domain)]
 
+    def empty_groups(self, int domain):
+        self._validate_did(domain, "domain")
+        return list(self._thisptr.get().empty_groups(domain))
+
+    def isactivegroup(self, int domain, int gid):
+        self._validate_did(domain, "domain")
+        return self._thisptr.get().isactivegroup(domain, gid)
+
+    def groupsize(self, int domain, int gid):
+        self._validate_gid(domain, gid)
+        return self._thisptr.get().groupsize(domain, gid)
+
     def get_domain_hp(self, int domain):
+        self._validate_did(domain, "domain")
         m = CRP()
         raw = str(self._thisptr.get().get_domain_hp(domain))
         m.ParseFromString(raw)
         return {'alpha':m.alpha}
 
     def set_domain_hp(self, int domain, dict d):
+        self._validate_did(domain, "domain")
         m = CRP()
         m.alpha = float(d['alpha'])
         self._thisptr.get().set_domain_hp(domain, m.SerializeToString())
 
     def get_relation_hp(self, int relation):
+        self._validate_rid(relation, "relation")
         raw = str(self._thisptr.get().get_relation_hp(relation))
         desc = self._defn._relations[relation][1].py_desc()
         return desc.shared_bytes_to_dict(raw)
 
     def set_relation_hp(self, int relation, dict d):
+        self._validate_rid(relation, "relation")
         desc = self._defn._relations[relation][1].py_desc()
         cdef hyperparam_bag_t raw = desc.shared_dict_to_bytes(d)
         self._thisptr.get().set_relation_hp(relation, raw)
 
     def get_suffstats(self, int relation, gids):
+        self._validate_rid(relation, "relation")
         desc = self._defn._relations[relation][1].py_desc()
+        arity = len(self._defn._relations[relation][0])
+        validator.validate_len(gids, arity, "gids")
         cdef suffstats_bag_t raw
         cdef vector[size_t] cgids
         for g in gids:
+            # XXX(stephentu): need to validate this, but it's OK for now since
+            # the C++ API will just return false if not found
             cgids.push_back(int(g))
         cdef cbool found = self._thisptr.get().get_suffstats(relation, cgids, raw)
         if not found:
@@ -159,20 +208,27 @@ cdef class state:
             return desc.group_bytes_to_dict(raw)
 
     def score_assignment(self, int domain):
+        self._validate_did(domain, "domain")
         return self._thisptr.get().score_assignment(domain)
 
     def score_likelihood(self, rng r):
-        assert r
+        validator.validate_not_none(r)
         return self._thisptr.get().score_likelihood(r._thisptr[0]);
 
+    # XXX(stephentu): this is used for debugging and should be removed
     def entity_data_positions(self, int domain, int eid, relations):
+        self._validate_eid(domain, eid)
         cdef vector[vector[size_t]] cret = self._thisptr.get().entity_data_positions(domain, eid, get_crelations_raw(relations))
         return [[x for x in inner] for inner in cret]
 
     def serialize(self):
         return self._thisptr.get().serialize()
 
+    # XXX(stephentu): expose more methods
+
 def bind(state s, int domain, relations):
+    s._validate_did(domain, "domain")
+    validator.validate_len(relations, s.nrelations(), "relations")
     cdef shared_ptr[c_entity_based_state_object] px
     cdef vector[shared_ptr[c_dataview]] crelations = get_crelations(relations)
     px.reset(new c_model(s._thisptr, domain, crelations))

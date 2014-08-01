@@ -1,12 +1,15 @@
 # python imports
 from microscopes.models import model_descriptor
+from microscopes.common import validator
 
 cdef class model_definition:
     def __cinit__(self, domains, relations):
+        validator.validate_nonempty(domains, "domains")
+        validator.validate_nonempty(relations, "relations")
+
         cdef vector[size_t] c_domains
         for d in domains:
-            if d < 0:
-                raise ValueError("negative domain size")
+            validator.validate_positive(d)
             c_domains.push_back(d)
         self._domains = list(domains)
 
@@ -15,12 +18,9 @@ cdef class model_definition:
         for rdomains, rmodel in relations:
             c_rdomains.clear()
             for d in rdomains:
-                if d < 0 or d >= len(domains):
-                    raise ValueError("invalid domain id")
+                validator.validate_in_range(d, len(domains))
                 c_rdomains.push_back(d)
-            if not isinstance(rmodel, model_descriptor):
-                raise ValueError(
-                    "invalid model given: {}".format(repr(rmodel)))
+            validator.validate_type(rmodel, model_descriptor)
             c_relations.push_back(
                 c_relation_definition(
                     c_rdomains,

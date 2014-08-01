@@ -24,11 +24,6 @@ from microscopes.cxx.irm._model_h cimport \
     deserialize as c_deserialize
 from microscopes.irm.definition cimport model_definition
 
-# python imports
-from microscopes.cxx.common.sparse_ndarray._dataview import \
-    abstract_dataview
-from microscopes.irm.definition import model_definition
-
 cdef class state:
     cdef shared_ptr[c_state] _thisptr
     cdef public model_definition _defn
