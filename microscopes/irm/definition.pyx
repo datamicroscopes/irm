@@ -28,3 +28,6 @@ cdef class model_definition:
         self._relations = list(relations)
 
         self._thisptr.reset(new c_model_definition(c_domains, c_relations))
+
+    def shape(self, relation):
+        return tuple(self._domains[did] for did in self._relations[relation][0])

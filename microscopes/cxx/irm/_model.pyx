@@ -6,10 +6,6 @@ from microscopes.irm.definition import model_definition
 from microscopes.common import validator
 from microscopes.io.schema_pb2 import CRP
 
-def _check_relations(relations):
-    for reln in relations:
-        validator.validate_type(reln, abstract_dataview)
-
 cdef vector[shared_ptr[c_dataview]] get_crelations(relations):
     cdef vector[shared_ptr[c_dataview]] crelations
     for reln in relations:
@@ -45,7 +41,13 @@ cdef class state:
             # handle the random initialization case
             data = list(kwargs['data'])
             validator.validate_len(data, len(defn._relations), "data")
-            _check_relations(data)
+            for rid, view in enumerate(data):
+                validator.validate_type(view, abstract_dataview)
+                expected = defn.shape(rid)
+                actual = view.shape()
+                if expected != actual:
+                    msg = "expected view of shape {}, got shape {}"
+                    raise ValueError(msg.format(expected, actual))
 
             if 'r' not in kwargs:
                 raise ValueError("need parameter `r'")
