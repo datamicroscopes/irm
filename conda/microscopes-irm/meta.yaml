@@ -1,0 +1,31 @@
+package:
+  name: microscopes-irm
+  version: "0.1.0"
+
+source:
+  git_url: git@github.com:datamicroscopes/irm.git
+
+requirements:
+  build:
+    - cmake
+    - python
+    - numpy
+    - cython 0.20.2
+    - distributions
+    - microscopes-common
+    - libprotobuf
+  run:
+    - python
+    - numpy
+    - scipy
+    - distributions
+    - microscopes-common
+    - libprotobuf
+    - protobuf
+
+test:
+  imports:
+    - microscopes.cxx.irm
+
+about:
+  home: https://github.com/datamicroscopes/irm
