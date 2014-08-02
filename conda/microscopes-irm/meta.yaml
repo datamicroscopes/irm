@@ -3,7 +3,7 @@ package:
   version: "0.1.0"
 
 source:
-  git_url: git@github.com:datamicroscopes/irm.git
+  git_url: https://github.com/datamicroscopes/irm.git
 
 requirements:
   build:
