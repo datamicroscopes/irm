@@ -202,11 +202,18 @@ extensions = cythonize([
     make_extension('microscopes.cxx.irm._model'),
 ], include_path=[microscopes_common_cython_inc])
 
+with open('README.md') as f:
+    long_description = f.read()
+
 setup(
     version=version,
     name='microscopes-irm',
-    description='XYZ',
-    long_description='XYZ long',
+    description='Non-parametric bayesian inference',
+    long_description=long_description,
+    url='https://github.com/datamicroscopes/irm',
+    author='Stephen Tu, Eric Jonas',
+    maintainer='Stephen Tu',
+    maintainer_email='tu.stephenl@gmail.com',
     packages=(
         'microscopes.irm',
         'microscopes.cxx.irm',
