@@ -1,6 +1,6 @@
 #pragma once
 
-#include <microscopes/common/sparse_ndarray/dataview.hpp>
+#include <microscopes/common/relation/dataview.hpp>
 #include <microscopes/common/entity_state.hpp>
 #include <microscopes/common/group_manager.hpp>
 #include <microscopes/common/typedefs.hpp>
@@ -55,7 +55,7 @@ struct _empty {};
 typedef common::group_manager<_empty> domain;
 } // namespace detail
 
-typedef std::vector<const common::sparse_ndarray::dataview *> dataset_t;
+typedef std::vector<const common::relation::dataview *> dataset_t;
 typedef detail::domain domain;
 
 class state {
@@ -474,7 +474,7 @@ class model : public common::entity_based_state_object {
 public:
   model(const std::shared_ptr<state> &impl,
         size_t domain,
-        const std::vector<std::shared_ptr<common::sparse_ndarray::dataview>> &data)
+        const std::vector<std::shared_ptr<common::relation::dataview>> &data)
     : impl_(impl), domain_(domain), data_(data), data_raw_()
   {
     MICROSCOPES_DCHECK(impl.get(), "nullptr impl");
@@ -578,8 +578,8 @@ public:
 private:
   std::shared_ptr<state> impl_;
   size_t domain_;
-  std::vector<std::shared_ptr<common::sparse_ndarray::dataview>> data_;
-  std::vector<const common::sparse_ndarray::dataview *> data_raw_;
+  std::vector<std::shared_ptr<common::relation::dataview>> data_;
+  std::vector<const common::relation::dataview *> data_raw_;
 };
 
 } // namespace irm

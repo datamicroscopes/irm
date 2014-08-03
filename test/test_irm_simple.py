@@ -1,5 +1,5 @@
 from microscopes.cxx.irm.model import initialize, bind
-from microscopes.cxx.common.sparse_ndarray.dataview import numpy_dataview
+from microscopes.cxx.common.relation.dataview import numpy_dataview
 from microscopes.models import bb
 from microscopes.irm.definition import model_definition
 from microscopes.cxx.common.rng import rng

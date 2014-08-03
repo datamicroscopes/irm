@@ -1,6 +1,6 @@
 # python imports
 from microscopes.cxx.common._rng import rng
-from microscopes.cxx.common.sparse_ndarray._dataview import \
+from microscopes.cxx.common.relation._dataview import \
     abstract_dataview
 from microscopes.irm.definition import model_definition
 from microscopes.common import validator

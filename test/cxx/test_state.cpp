@@ -1,5 +1,5 @@
 #include <microscopes/irm/model.hpp>
-#include <microscopes/common/sparse_ndarray/dataview.hpp>
+#include <microscopes/common/relation/dataview.hpp>
 #include <microscopes/common/random_fwd.hpp>
 #include <microscopes/models/distributions.hpp>
 
@@ -9,7 +9,7 @@
 using namespace std;
 using namespace distributions;
 using namespace microscopes::common;
-using namespace microscopes::common::sparse_ndarray;
+using namespace microscopes::common::relation;
 using namespace microscopes::models;
 using namespace microscopes::irm;
 using namespace microscopes::io;

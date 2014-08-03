@@ -7,7 +7,7 @@
 using namespace std;
 using namespace distributions;
 using namespace microscopes::common;
-using namespace microscopes::common::sparse_ndarray;
+using namespace microscopes::common::relation;
 using namespace microscopes::irm;
 using namespace microscopes::irm::detail;
 using namespace microscopes::io;
