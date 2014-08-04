@@ -329,10 +329,11 @@ state::initialize(const model_definition &defn,
   vector<size_t> gids;
   for (size_t i = 0; i < p->relations_.size(); i++) {
     auto &relation = p->relations_[i];
-    for (const auto &pp : *data[i]) {
-      p->eids_to_gids_under_relation(gids, pp.first, relation.desc_);
-      p->add_value_to_feature_group(gids, pp.second, relation, rng, nullptr);
-    }
+    for (size_t outer = 0; outer < data[i]->shape().front(); outer++)
+      for (const auto &pp : data[i]->slice(0, outer)) {
+        p->eids_to_gids_under_relation(gids, pp.first, relation.desc_);
+        p->add_value_to_feature_group(gids, pp.second, relation, rng, nullptr);
+      }
   }
   return p;
 }

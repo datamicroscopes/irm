@@ -69,7 +69,7 @@ test1()
   random_device rd;
   rng_t r(rd());
 
-  const size_t n = 10;
+  const size_t n = 3;
 
   // 1 domain,
   // 1 binary relation
@@ -127,6 +127,8 @@ test1()
   for (auto ident : s->suffstats_identifiers(0))
     sum += s->get_suffstats_count(0, ident);
   MICROSCOPES_CHECK(sum == present, "suff stats don't match up");
+
+  cout << "test1 completed" << endl;
 }
 
 static void
@@ -202,6 +204,8 @@ test2()
 
   delete [] likes;
   delete [] masks;
+
+  cout << "test2 completed" << endl;
 }
 
 template <typename T>
@@ -289,6 +293,8 @@ test3()
     const auto choice = scores.first[util::sample_discrete_log(scores.second, r)];
     s1.add_value(choice, i, r);
   }
+
+  cout << "test3 completed" << endl;
 }
 
 static void
@@ -383,6 +389,8 @@ test4()
       }
     }
   }
+
+  cout << "test4 completed" << endl;
 }
 
 int
