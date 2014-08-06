@@ -198,8 +198,8 @@ def make_extension(module_name):
 
 extensions = cythonize([
     make_extension('microscopes.irm.definition'),
-    make_extension('microscopes.cxx.irm.model'),
-    make_extension('microscopes.cxx.irm._model'),
+    make_extension('microscopes.irm.model'),
+    make_extension('microscopes.irm._model'),
 ], include_path=[microscopes_common_cython_inc])
 
 with open('README.md') as f:
@@ -216,6 +216,5 @@ setup(
     maintainer_email='tu.stephenl@gmail.com',
     packages=(
         'microscopes.irm',
-        'microscopes.cxx.irm',
     ),
     ext_modules=extensions)

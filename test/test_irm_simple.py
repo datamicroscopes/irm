@@ -1,9 +1,9 @@
-from microscopes.cxx.irm.model import initialize, bind
-from microscopes.cxx.common.relation.dataview import \
+from microscopes.irm.model import initialize, bind
+from microscopes.common.relation.dataview import \
     numpy_dataview, sparse_2d_dataview
 from microscopes.models import bb
 from microscopes.irm.definition import model_definition
-from microscopes.cxx.common.rng import rng
+from microscopes.common.rng import rng
 
 import numpy as np
 import numpy.ma as ma
