@@ -106,7 +106,7 @@ test1()
         reinterpret_cast<uint8_t*>(friends), masks,
         {n, n}, runtime_type(TYPE_B)));
 
-  auto s = state::initialize(
+  auto s = state<>::initialize(
     defn,
     {crp_hp(5.0)},
     {beta_bernoulli_hp(2., 2.)},
@@ -172,7 +172,7 @@ test2()
         reinterpret_cast<uint8_t*>(likes), masks,
         domains, runtime_type(TYPE_B)));
 
-  auto s = state::initialize(
+  auto s = state<3>::initialize(
     defn,
     {crp_hp(2.0), crp_hp(20.0)},
     {beta_bernoulli_hp(2., 2.)},
@@ -269,7 +269,7 @@ test3()
         {domains[1], domains[1]},
         runtime_type(TYPE_B)));
 
-  auto s = state::initialize(
+  auto s = state<2>::initialize(
       defn,
       {crp_hp(2.0), crp_hp(20.0)},
       {beta_bernoulli_hp(2., 2.), beta_bernoulli_hp(2., 3.)},
@@ -277,8 +277,8 @@ test3()
       {rel0view.get(), rel1view.get()},
       r);
 
-  microscopes::irm::model s0(s, 0, {rel0view, rel1view});
-  microscopes::irm::model s1(s, 1, {rel0view, rel1view});
+  microscopes::irm::model<2> s0(s, 0, {rel0view, rel1view});
+  microscopes::irm::model<2> s1(s, 1, {rel0view, rel1view});
 
   for (size_t i = 0; i < s0.nentities(); i++) {
     s0.remove_value(i, r);
@@ -343,7 +343,7 @@ test4()
         {domains[0], domains[2]},
         runtime_type(TYPE_B)));
 
-  auto s = state::initialize(
+  auto s = state<5>::initialize(
       defn,
       {crp_hp(2.0), crp_hp(20.0), crp_hp(10.0)},
       {beta_bernoulli_hp(2., 2.), nich_hp(), beta_bernoulli_hp(2., 3.)},
@@ -352,7 +352,7 @@ test4()
       r);
 
   const auto raw = s->serialize();
-  const auto s1 = state::deserialize(defn, raw);
+  const auto s1 = state<5>::deserialize(defn, raw);
   MICROSCOPES_CHECK(s->ndomains() == s1->ndomains(), "ndomains");
   for (size_t i = 0; i < s->ndomains(); i++) {
     assert_vectors_equal(s->assignments(i), s1->assignments(i));
