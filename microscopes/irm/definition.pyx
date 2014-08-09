@@ -16,6 +16,12 @@ cdef class model_definition:
         cdef vector[c_relation_definition] c_relations
         cdef vector[size_t] c_rdomains
         for rdomains, rmodel in relations:
+            if len(rdomains) < 2:
+                raise ValueError("cannot have relation with arity < 2")
+            if len(rdomains) > 4:
+                # XXX(stephentu) need to fix in future
+                raise ValueError(
+                    "implementation limitation: relation arity must be <= 4")
             c_rdomains.clear()
             for d in rdomains:
                 validator.validate_in_range(d, len(domains))

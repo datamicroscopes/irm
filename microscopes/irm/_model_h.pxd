@@ -23,8 +23,13 @@ cdef extern from "microscopes/irm/model.hpp" namespace "microscopes::irm":
         model_definition(const vector[size_t] &,
                          const vector[relation_definition] &) except +
 
-    cdef cppclass state:
 
+    # XXX(stephentu): FIXME
+    # Our C++ has state<ssize_t MaxArity>, but Cython cannot express this. We
+    # therefore typedef state<4> state_max4 and for now assume you will never
+    # have a relation with rank > 4
+
+    cdef cppclass state_max4:
         size_t ndomains()
         size_t nrelations()
         size_t nentities(size_t) except +
@@ -61,13 +66,13 @@ cdef extern from "microscopes/irm/model.hpp" namespace "microscopes::irm":
 
         string serialize() except +
 
-    cdef cppclass model(entity_based_state_object):
-        model(const shared_ptr[state] &,
-              size_t,
-              const vector[shared_ptr[dataview]] &) except +
+    cdef cppclass model_max4(entity_based_state_object):
+        model_max4(const shared_ptr[state_max4] &,
+                   size_t,
+                   const vector[shared_ptr[dataview]] &) except +
 
-cdef extern from "microscopes/irm/model.hpp" namespace "microscopes::irm::state":
-    shared_ptr[state] \
+cdef extern from "microscopes/irm/model.hpp" namespace "microscopes::irm::state_max4":
+    shared_ptr[state_max4] \
     initialize(const model_definition &,
                const vector[hyperparam_bag_t] &,
                const vector[hyperparam_bag_t] &,
@@ -75,5 +80,5 @@ cdef extern from "microscopes/irm/model.hpp" namespace "microscopes::irm::state"
                const dataset_t &,
                rng_t &) except +
 
-    shared_ptr[state] \
+    shared_ptr[state_max4] \
     deserialize(const model_definition &, const string &) except +

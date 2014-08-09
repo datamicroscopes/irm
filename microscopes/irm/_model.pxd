@@ -18,8 +18,8 @@ from microscopes.common._entity_state cimport \
     entity_based_state_object
 from microscopes.common._rng cimport rng
 from microscopes.irm._model_h cimport \
-    state as c_state, \
-    model as c_model, \
+    state_max4 as c_state, \
+    model_max4 as c_model, \
     initialize as c_initialize, \
     deserialize as c_deserialize
 from microscopes.irm.definition cimport model_definition

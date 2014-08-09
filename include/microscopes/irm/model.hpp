@@ -979,5 +979,17 @@ extern template class model<2>;
 extern template class model<3>;
 extern template class model<4>;
 
+// cythonic helpers, since cython's template system cannot handle template
+// <ssize_t>
+typedef state<-1> state_variadic;
+typedef state<2>  state_max2;
+typedef state<3>  state_max3;
+typedef state<4>  state_max4;
+
+typedef model<-1> model_variadic;
+typedef model<2>  model_max2;
+typedef model<3>  model_max3;
+typedef model<4>  model_max4;
+
 } // namespace irm
 } // namespace microscopes
