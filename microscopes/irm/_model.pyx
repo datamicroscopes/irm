@@ -220,7 +220,10 @@ cdef class state:
     # XXX(stephentu): this is used for debugging and should be removed
     def entity_data_positions(self, int domain, int eid, relations):
         self._validate_eid(domain, eid)
-        cdef vector[vector[size_t]] cret = self._thisptr.get().entity_data_positions(domain, eid, get_crelations_raw(relations))
+        cdef vector[vector[size_t]] cret = (
+            self._thisptr.get().entity_data_positions(
+                domain, eid, get_crelations_raw(relations))
+        )
         return [[x for x in inner] for inner in cret]
 
     def serialize(self):
@@ -236,6 +239,7 @@ def bind(state s, int domain, relations):
     px.reset(new c_model(s._thisptr, domain, crelations))
     cdef entity_based_state_object ret = entity_based_state_object(s.models())
     ret.set_entity(px)
+    ret._refs = relations
     return ret
 
 def initialize(model_definition defn, data, rng r, **kwargs):
