@@ -1,2 +1,6 @@
-from microscopes.irm._model import \
-    state, bind, initialize, deserialize 
+from microscopes.irm._model import (
+    state,
+    bind,
+    initialize,
+    deserialize,
+)

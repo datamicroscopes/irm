@@ -29,7 +29,7 @@ cdef class state:
             raise ValueError("need exaclty one of `data' or `bytes'")
 
         valid_kwargs = ('data', 'bytes', 'r',
-                'cluster_hps', 'relation_hps', 'domain_assignments',)
+                        'cluster_hps', 'relation_hps', 'domain_assignments',)
         validator.validate_kwargs(kwargs, valid_kwargs)
 
         cdef vector[hyperparam_bag_t] c_cluster_hps
@@ -59,7 +59,7 @@ cdef class state:
                 validator.validate_len(
                     cluster_hps, len(defn._domains), "cluster_hps")
             else:
-                cluster_hps = [{'alpha':1.}]*len(defn._domains)
+                cluster_hps = [{'alpha': 1.}] *len(defn._domains)
 
             def make_cluster_hp_bytes(cluster_hp):
                 m = CRP()
@@ -76,8 +76,8 @@ cdef class state:
                 relation_hps = [m.default_params() for _, m in defn._relations]
 
             relation_hps_bytes = [
-                m.py_desc().shared_dict_to_bytes(hp) \
-                    for hp, (_, m) in zip(relation_hps, defn._relations)]
+                m.py_desc().shared_dict_to_bytes(hp)
+                for hp, (_, m) in zip(relation_hps, defn._relations)]
             for s in relation_hps_bytes:
                 c_relation_hps.push_back(s)
 
@@ -172,7 +172,7 @@ cdef class state:
         m = CRP()
         raw = str(self._thisptr.get().get_domain_hp(domain))
         m.ParseFromString(raw)
-        return {'alpha':m.alpha}
+        return {'alpha': m.alpha}
 
     def set_domain_hp(self, int domain, dict d):
         self._validate_did(domain, "domain")
@@ -203,7 +203,9 @@ cdef class state:
             # XXX(stephentu): need to validate this, but it's OK for now since
             # the C++ API will just return false if not found
             cgids.push_back(int(g))
-        cdef cbool found = self._thisptr.get().get_suffstats(relation, cgids, raw)
+        cdef cbool found = (
+            self._thisptr.get().get_suffstats(relation, cgids, raw)
+        )
         if not found:
             return None
         else:
@@ -215,7 +217,7 @@ cdef class state:
 
     def score_likelihood(self, rng r):
         validator.validate_not_none(r)
-        return self._thisptr.get().score_likelihood(r._thisptr[0]);
+        return self._thisptr.get().score_likelihood(r._thisptr[0])
 
     # XXX(stephentu): this is used for debugging and should be removed
     def entity_data_positions(self, int domain, int eid, relations):
@@ -231,6 +233,7 @@ cdef class state:
 
     # XXX(stephentu): expose more methods
 
+
 def bind(state s, int domain, relations):
     s._validate_did(domain, "domain")
     validator.validate_len(relations, s.nrelations(), "relations")
@@ -242,8 +245,10 @@ def bind(state s, int domain, relations):
     ret._refs = relations
     return ret
 
+
 def initialize(model_definition defn, data, rng r, **kwargs):
     return state(defn=defn, data=data, r=r, **kwargs)
+
 
 def deserialize(model_definition defn, bytes, **kwargs):
     return state(defn=defn, bytes=bytes, **kwargs)
