@@ -131,7 +131,7 @@ public:
     {
       if (MaxRelationArity != -1)
         MICROSCOPES_DCHECK(
-            desc.arity() <= MaxRelationArity,
+            desc.arity() <= size_t(MaxRelationArity),
             "cannot handle arity");
     }
 
