@@ -1,3 +1,6 @@
+# cython: embedsignature=True
+
+
 # python imports
 from microscopes.models import model_descriptor
 from microscopes.common import validator

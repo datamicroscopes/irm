@@ -1,3 +1,6 @@
+# cython: embedsignature=True
+
+
 # python imports
 from microscopes.common._rng import rng
 from microscopes.common.relation._dataview import \
