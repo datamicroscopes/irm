@@ -81,5 +81,4 @@ add_test(test_state test_state)
 target_link_libraries(test_state ${PROTOBUF_LIBRARIES} distributions_shared microscopes_common microscopes_irm)
 
 add_executable(bench bin/bench.cpp)
-add_test(bench bench)
 target_link_libraries(bench ${PROTOBUF_LIBRARIES} distributions_shared microscopes_common microscopes_irm)
