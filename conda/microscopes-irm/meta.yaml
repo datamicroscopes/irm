@@ -27,6 +27,8 @@ requirements:
 test:
   imports:
     - microscopes.irm
+    - microscopes.irm.definition
+    - microscopes.irm.model
 
 about:
   home: https://github.com/datamicroscopes/irm
