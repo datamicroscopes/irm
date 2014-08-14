@@ -26,5 +26,6 @@ before_install:
   - mkdir .travis
   - (cd .travis && git clone https://github.com/datamicroscopes/common.git && cd common && make travis_install)
   - (cd .travis && git clone https://github.com/datamicroscopes/kernels.git && cd kernels && make travis_install)
+  - (cd .travis && git clone https://github.com/datamicroscopes/mixturemodel.git && cd mixturemodel && make travis_install)
 install: make travis_install
 script: make travis_script
