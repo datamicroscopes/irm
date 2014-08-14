@@ -43,7 +43,7 @@ cdef class state:
         if 'data' in kwargs:
             # handle the random initialization case
             data = list(kwargs['data'])
-            validator.validate_len(data, len(defn._relations), "data")
+            validator.validate_len(data, len(defn.relations()), "data")
             for rid, view in enumerate(data):
                 validator.validate_type(view, abstract_dataview)
                 expected = defn.shape(rid)
@@ -60,9 +60,9 @@ cdef class state:
             if 'cluster_hps' in kwargs:
                 cluster_hps = list(kwargs['cluster_hps'])
                 validator.validate_len(
-                    cluster_hps, len(defn._domains), "cluster_hps")
+                    cluster_hps, len(defn.domains()), "cluster_hps")
             else:
-                cluster_hps = [{'alpha': 1.}] *len(defn._domains)
+                cluster_hps = [{'alpha': 1.}] *len(defn.domains())
 
             def make_cluster_hp_bytes(cluster_hp):
                 m = CRP()
@@ -74,13 +74,13 @@ cdef class state:
             if 'relation_hps' in kwargs:
                 relation_hps = list(kwargs['relation_hps'])
                 validator.validate_len(
-                    relation_hps, len(defn._relations), "relation_hps")
+                    relation_hps, len(defn.relations()), "relation_hps")
             else:
-                relation_hps = [m.default_params() for _, m in defn._relations]
+                relation_hps = [m.default_hyperparams() for _, m in defn.relations()]
 
             relation_hps_bytes = [
                 m.py_desc().shared_dict_to_bytes(hp)
-                for hp, (_, m) in zip(relation_hps, defn._relations)]
+                for hp, (_, m) in zip(relation_hps, defn.relations())]
             for s in relation_hps_bytes:
                 c_relation_hps.push_back(s)
 
@@ -88,21 +88,21 @@ cdef class state:
                 domain_assignments = list(kwargs['domain_assignments'])
                 validator.validate_len(
                     domain_assignments,
-                    len(defn._domains),
+                    len(defn.domains()),
                     "domain_assignments")
                 for did, assignment in enumerate(domain_assignments):
                     assignment = list(assignment)
                     if not len(assignment):
                         c_domain_assignments.push_back(vector[size_t]())
                     else:
-                        validator.validate_len(assignment, defn._domains[did])
+                        validator.validate_len(assignment, defn.domains()[did])
                         c_assignment.clear()
                         for i in assignment:
                             validator.validate_nonnegative(i)
                             c_assignment.push_back(i)
                         c_domain_assignments.push_back(c_assignment)
             else:
-                c_domain_assignments.resize(len(defn._domains))
+                c_domain_assignments.resize(len(defn.domains()))
 
             self._thisptr = c_initialize(
                 defn._thisptr.get()[0],
@@ -122,7 +122,7 @@ cdef class state:
             raise RuntimeError("could not properly construct state")
 
     def models(self):
-        return [m for _, m in self._defn._relations]
+        return [m for _, m in self._defn.relations()]
 
     def _validate_did(self, did, param_name=None):
         validator.validate_in_range(did, self.ndomains(), param_name)
@@ -138,10 +138,10 @@ cdef class state:
             raise ValueError("invalid gid")
 
     def ndomains(self):
-        return len(self._defn._domains)
+        return len(self._defn.domains())
 
     def nrelations(self):
-        return len(self._defn._relations)
+        return len(self._defn.relations())
 
     def nentities(self, int domain):
         self._validate_did(domain, "domain")
@@ -186,19 +186,19 @@ cdef class state:
     def get_relation_hp(self, int relation):
         self._validate_rid(relation, "relation")
         raw = str(self._thisptr.get().get_relation_hp(relation))
-        desc = self._defn._relations[relation][1].py_desc()
+        desc = self._defn.relations()[relation][1].py_desc()
         return desc.shared_bytes_to_dict(raw)
 
     def set_relation_hp(self, int relation, dict d):
         self._validate_rid(relation, "relation")
-        desc = self._defn._relations[relation][1].py_desc()
+        desc = self._defn.relations()[relation][1].py_desc()
         cdef hyperparam_bag_t raw = desc.shared_dict_to_bytes(d)
         self._thisptr.get().set_relation_hp(relation, raw)
 
     def get_suffstats(self, int relation, gids):
         self._validate_rid(relation, "relation")
-        desc = self._defn._relations[relation][1].py_desc()
-        arity = len(self._defn._relations[relation][0])
+        desc = self._defn.relations()[relation][1].py_desc()
+        arity = len(self._defn.relations()[relation][0])
         validator.validate_len(gids, arity, "gids")
         cdef suffstats_bag_t raw
         cdef vector[size_t] cgids
