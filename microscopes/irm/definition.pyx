@@ -5,6 +5,7 @@
 from microscopes.models import model_descriptor
 from microscopes.common import validator
 
+
 cdef class model_definition:
     def __cinit__(self, domains, relations):
         validator.validate_nonempty(domains, "domains")
@@ -38,6 +39,20 @@ cdef class model_definition:
 
         self._thisptr.reset(new c_model_definition(c_domains, c_relations))
 
+    def domains(self):
+        return self._domains
+
+    def relations(self):
+        return self._relations
+
     def shape(self, relation):
         dids = self._relations[relation][0]
         return tuple(self._domains[did] for did in dids)
+
+    def __reduce__(self):
+        args = (self._domains, self._relations)
+        return (_reconstruct_model_definition, args)
+
+
+def _reconstruct_model_definition(domains, relations):
+    return model_definition(domains, relations)
