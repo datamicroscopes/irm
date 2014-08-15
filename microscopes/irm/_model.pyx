@@ -3,11 +3,11 @@
 
 # python imports
 from microscopes.common._rng import rng
-from microscopes.common.relation._dataview import \
-    abstract_dataview
+from microscopes.common.relation._dataview import abstract_dataview
 from microscopes.irm.definition import model_definition
 from microscopes.common import validator
 from microscopes.io.schema_pb2 import CRP
+
 
 cdef vector[shared_ptr[c_dataview]] get_crelations(relations):
     cdef vector[shared_ptr[c_dataview]] crelations
@@ -15,11 +15,13 @@ cdef vector[shared_ptr[c_dataview]] get_crelations(relations):
         crelations.push_back((<abstract_dataview>reln)._thisptr)
     return crelations
 
+
 cdef vector[const c_dataview *] get_crelations_raw(relations):
     cdef vector[const c_dataview *] crelations
     for reln in relations:
         crelations.push_back((<abstract_dataview>reln)._thisptr.get())
     return crelations
+
 
 cdef class state:
     def __cinit__(self, model_definition defn, **kwargs):
@@ -235,6 +237,9 @@ cdef class state:
     def serialize(self):
         return self._thisptr.get().serialize()
 
+    def __reduce__(self):
+        return (_reconstruct_state, (self._defn, self.serialize()))
+
     # XXX(stephentu): expose more methods
 
 
@@ -254,5 +259,9 @@ def initialize(model_definition defn, data, rng r, **kwargs):
     return state(defn=defn, data=data, r=r, **kwargs)
 
 
-def deserialize(model_definition defn, bytes, **kwargs):
-    return state(defn=defn, bytes=bytes, **kwargs)
+def deserialize(model_definition defn, bytes):
+    return state(defn=defn, bytes=bytes)
+
+
+def _reconstruct_state(defn, bytes):
+    return deserialize(defn, bytes)
