@@ -2,9 +2,7 @@ from microscopes.irm import model, runner
 from microscopes.irm.definition import model_definition
 from microscopes.models import (
     bb,
-    bbnc,
     nich,
-    niw,
 )
 from microscopes.common.rng import rng
 from microscopes.common.relation.dataview import numpy_dataview

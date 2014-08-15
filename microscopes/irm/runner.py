@@ -8,6 +8,7 @@ from microscopes.irm.definition import model_definition
 from microscopes.irm.model import state, bind
 from microscopes.kernels import gibbs, slice
 
+
 def default_kernel_config(defn):
     validator.validate_type(defn, model_definition, 'defn')
     models = defn.relation_models()
@@ -28,10 +29,11 @@ def default_kernel_config(defn):
     for i, hp in enumerate(defn.relation_hyperpriors()):
         if not hp:
             continue
-        hparams[i] = {k : (fn, 0.1) for k, fn in hp.iteritems()}
+        hparams[i] = {k: (fn, 0.1) for k, fn in hp.iteritems()}
 
     kernels.append(('relation_hp', {'hparams': hparams}))
     return kernels
+
 
 class runner(object):
     """The IRM model runner
