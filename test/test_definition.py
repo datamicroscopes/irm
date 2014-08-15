@@ -13,8 +13,8 @@ def test_model_definition_pickle():
     bstr = pickle.dumps(defn)
     defn1 = pickle.loads(bstr)
     assert_list_equal(defn.domains(), defn1.domains())
-    assert_equals(len(defn.relations()), len(defn1.relations()))
-    zipped_relations = zip(defn.relations(), defn1.relations())
-    for (dids, model), (dids1, model1) in zipped_relations:
-        assert_list_equal(list(dids), list(dids1))
+    assert_equals(defn.relations(), defn1.relations())
+    zipped_models = zip(defn.relation_models(), defn1.relation_models())
+    for model, model1 in zipped_models:
         assert_equals(model.name(), model1.name())
+    # XXX(stephentu): check hyperpriors

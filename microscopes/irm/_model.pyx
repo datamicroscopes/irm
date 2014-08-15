@@ -76,11 +76,12 @@ cdef class state:
                 validator.validate_len(
                     relation_hps, len(defn.relations()), "relation_hps")
             else:
-                relation_hps = [m.default_hyperparams() for _, m in defn.relations()]
+                models = defn.relation_models()
+                relation_hps = [m.default_hyperparams() for m in models]
 
             relation_hps_bytes = [
                 m.py_desc().shared_dict_to_bytes(hp)
-                for hp, (_, m) in zip(relation_hps, defn.relations())]
+                for hp, m in zip(relation_hps, defn.relation_models())]
             for s in relation_hps_bytes:
                 c_relation_hps.push_back(s)
 
@@ -122,7 +123,7 @@ cdef class state:
             raise RuntimeError("could not properly construct state")
 
     def models(self):
-        return [m for _, m in self._defn.relations()]
+        return self._defn.relation_models()
 
     def _validate_did(self, did, param_name=None):
         validator.validate_in_range(did, self.ndomains(), param_name)
@@ -186,19 +187,19 @@ cdef class state:
     def get_relation_hp(self, int relation):
         self._validate_rid(relation, "relation")
         raw = str(self._thisptr.get().get_relation_hp(relation))
-        desc = self._defn.relations()[relation][1].py_desc()
+        desc = self._defn.relation_models()[relation].py_desc()
         return desc.shared_bytes_to_dict(raw)
 
     def set_relation_hp(self, int relation, dict d):
         self._validate_rid(relation, "relation")
-        desc = self._defn.relations()[relation][1].py_desc()
+        desc = self._defn.relation_models()[relation].py_desc()
         cdef hyperparam_bag_t raw = desc.shared_dict_to_bytes(d)
         self._thisptr.get().set_relation_hp(relation, raw)
 
     def get_suffstats(self, int relation, gids):
         self._validate_rid(relation, "relation")
-        desc = self._defn.relations()[relation][1].py_desc()
-        arity = len(self._defn.relations()[relation][0])
+        desc = self._defn.relation_models()[relation].py_desc()
+        arity = len(self._defn.relations()[relation])
         validator.validate_len(gids, arity, "gids")
         cdef suffstats_bag_t raw
         cdef vector[size_t] cgids

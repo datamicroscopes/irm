@@ -4,6 +4,12 @@
 # python imports
 from microscopes.models import model_descriptor
 from microscopes.common import validator
+import operator as op
+
+
+# Why isn't this in the standard library?
+def _compose(f, g):
+    return lambda x: g(f(x))
 
 
 cdef class model_definition:
@@ -19,6 +25,7 @@ cdef class model_definition:
 
         cdef vector[c_relation_definition] c_relations
         cdef vector[size_t] c_rdomains
+        self._relations = []
         for rdomains, rmodel in relations:
             if len(rdomains) < 2:
                 raise ValueError("cannot have relation with arity < 2")
@@ -30,23 +37,43 @@ cdef class model_definition:
             for d in rdomains:
                 validator.validate_in_range(d, len(domains))
                 c_rdomains.push_back(d)
-            validator.validate_type(rmodel, model_descriptor)
+
+            if hasattr(rmodel, '__len__'):
+                validator.validate_len(rmodel, 2)
+                validator.validate_type(rmodel[0], model_descriptor)
+                validator.validate_type(rmodel[1], dict)
+                rmodel, hp = rmodel
+            else:
+                validator.validate_type(rmodel, model_descriptor)
+                rmodel, hp = rmodel, rmodel.default_hyperpriors()
+            self._relations.append((rdomains, (rmodel, hp)))
+
             c_relations.push_back(
                 c_relation_definition(
                     c_rdomains,
                     (<_base>rmodel._c_descriptor).get()))
-        self._relations = list(relations)
 
         self._thisptr.reset(new c_model_definition(c_domains, c_relations))
 
     def domains(self):
         return self._domains
 
+    def domain_hyperpriors(self):
+        raise RuntimeError("not implemented")
+
     def relations(self):
-        return self._relations
+        return map(op.itemgetter(0), self._relations)
+
+    def relation_models(self):
+        fn = _compose(op.itemgetter(1), op.itemgetter(0))
+        return map(fn, self._relations)
+
+    def relation_hyperpriors(self):
+        fn = _compose(op.itemgetter(1), op.itemgetter(1))
+        return map(fn, self._relations)
 
     def shape(self, relation):
-        dids = self._relations[relation][0]
+        dids = self.relations()[relation]
         return tuple(self._domains[did] for did in dids)
 
     def __reduce__(self):
