@@ -12,3 +12,4 @@
 /microscopes/**/*.cpp
 /microscopes/**/*.so
 /microscopes_irm.egg-info
+/microscopes/irm/githash.txt
