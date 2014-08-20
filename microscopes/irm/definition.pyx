@@ -4,6 +4,7 @@
 # python imports
 from microscopes.models import model_descriptor
 from microscopes.common import validator
+from microscopes.common.scalar_functions import log_exponential
 import operator as op
 
 
@@ -18,10 +19,15 @@ cdef class model_definition:
         validator.validate_nonempty(relations, "relations")
 
         cdef vector[size_t] c_domains
+        self._domains = []
         for d in domains:
-            validator.validate_positive(d)
-            c_domains.push_back(d)
-        self._domains = list(domains)
+            if hasattr(d, '__iter__'):
+                did, hp = d
+            else:
+                did, hp = d, {'alpha': log_exponential(1.)}
+            validator.validate_positive(did)
+            c_domains.push_back(did)
+            self._domains.append((did, hp))
 
         cdef vector[c_relation_definition] c_relations
         cdef vector[size_t] c_rdomains
@@ -56,10 +62,10 @@ cdef class model_definition:
         self._thisptr.reset(new c_model_definition(c_domains, c_relations))
 
     def domains(self):
-        return self._domains
+        return map(op.itemgetter(0), self._domains)
 
     def domain_hyperpriors(self):
-        raise RuntimeError("not implemented")
+        return map(op.itemgetter(1), self._domains)
 
     def relations(self):
         return map(op.itemgetter(0), self._relations)
@@ -74,7 +80,8 @@ cdef class model_definition:
 
     def shape(self, relation):
         dids = self.relations()[relation]
-        return tuple(self._domains[did] for did in dids)
+        domains = self.domains()
+        return tuple(domains[did] for did in dids)
 
     def __reduce__(self):
         args = (self._domains, self._relations)
