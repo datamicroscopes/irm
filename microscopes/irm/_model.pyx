@@ -156,6 +156,7 @@ cdef class state:
 
     def assignments(self, int domain):
         self._validate_did(domain, "domain")
+        return self._thisptr.get().assignments(domain)
 
     def groups(self, int domain):
         self._validate_did(domain, "domain")

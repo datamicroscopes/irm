@@ -1,18 +1,21 @@
 from microscopes.irm.definition import model_definition as irm_definition
-from microscopes.irm.model import \
-    initialize as irm_initialize, \
-    bind as irm_bind
+from microscopes.irm.model import (
+    initialize as irm_initialize,
+    bind as irm_bind,
+)
 from microscopes.mixture.definition import model_definition as mm_definition
-from microscopes.mixture.model import \
-    initialize as mm_initialize, \
-    bind as mm_bind
+from microscopes.mixture.model import (
+    initialize as mm_initialize,
+    bind as mm_bind,
+)
 from microscopes.common.rng import rng
-from microscopes.common.relation.dataview import \
-    numpy_dataview as relation_numpy_dataview, \
-    sparse_2d_dataview as sparse_relation_dataview
-from microscopes.common.recarray.dataview import \
-    numpy_dataview as rec_numpy_dataview
-
+from microscopes.common.relation.dataview import (
+    numpy_dataview as relation_numpy_dataview,
+    sparse_2d_dataview as sparse_relation_dataview,
+)
+from microscopes.common.recarray.dataview import (
+    numpy_dataview as rec_numpy_dataview,
+)
 from microscopes.models import bb, bbnc, gp
 from microscopes.kernels.gibbs import assign, assign_resample
 from microscopes.kernels.slice import theta

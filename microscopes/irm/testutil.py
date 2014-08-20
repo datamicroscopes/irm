@@ -1,8 +1,17 @@
-"""Test helpers specific to mixture models
+"""Test helpers specific to IRM
 
 """
 
 import numpy as np
+import itertools as it
+
+from microscopes.common.rng import rng
+from microscopes.common.relation.dataview import numpy_dataview
+from microscopes.common.testutil import (
+    permutation_iter,
+    scores_to_probs,
+)
+from microscopes.irm import model
 
 
 def toy_dataset(defn):
@@ -19,3 +28,24 @@ def toy_dataset(defn):
 
     return [make(defn.shape(i), model)
             for i, model in enumerate(defn.relation_models())]
+
+
+def data_with_posterior(defn, r=None):
+    # XXX(stephentu): should only accept conjugate models
+    if r is None:
+        r = rng()
+    relations = toy_dataset(defn)
+    views = map(numpy_dataview, relations)
+
+    def score_fn(assignments):
+        s = model.initialize(defn, views, r=r, domain_assignments=assignments)
+        assign = sum(s.score_assignment(i) for i in xrange(len(assignments)))
+        likelihood = s.score_likelihood(r)
+        return assign + likelihood
+
+    domains = defn.domains()
+    product_assignments = tuple(map(list, map(permutation_iter, domains)))
+    posterior = scores_to_probs(
+        np.array(map(score_fn, it.product(*product_assignments))))
+
+    return relations, posterior
