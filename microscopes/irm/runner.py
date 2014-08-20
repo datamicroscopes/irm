@@ -132,12 +132,9 @@ class runner(object):
     kernel_config : list
         A list of `(x, y)` tuples where `x` is a string containing the name of
         the kernel and `y` is kernel specific configuration.
-
-    r : ``rng``, optional
-
     """
 
-    def __init__(self, defn, views, latent, kernel_config, r=None):
+    def __init__(self, defn, views, latent, kernel_config):
         validator.validate_type(defn, model_definition, 'defn')
         validator.validate_len(views, len(defn.relations()), 'views')
         for view in views:
@@ -205,12 +202,17 @@ class runner(object):
 
             self._kernel_config.append((name, config))
 
-        if r is None:
-            r = rng()
-        validator.validate_type(r, rng, 'r')
-        self._r = r
+    def run(self, r, niters=10000):
+        """Run the specified mixturemodel kernel for `niters`, in a single
+        thread.
 
-    def run(self, niters=10000):
+        Parameters
+        ----------
+        r : random state
+        niters : int
+
+        """
+        validator.validate_type(r, rng, param_name='r')
         validator.validate_positive(niters, param_name='niters')
         inds = xrange(len(self._defn.domains()))
         models = [bind(self._latent, i, self._views) for i in inds]
@@ -218,17 +220,17 @@ class runner(object):
             for name, config in self._kernel_config:
                 if name == 'assign':
                     for idx in config.keys():
-                        gibbs.assign(models[idx], self._r)
+                        gibbs.assign(models[idx], r)
                 elif name == 'assign_resample':
                     for idx, v in config.iteritems():
-                        gibbs.assign_resample(models[idx], v['m'], self._r)
+                        gibbs.assign_resample(models[idx], v['m'], r)
                 elif name == 'cluster_hp':
                     for idx, v in config.iteritems():
-                        slice.hp(models[idx], self._r, cparam=v['cparam'])
+                        slice.hp(models[idx], r, cparam=v['cparam'])
                 elif name == 'relation_hp':
-                    slice.hp(models[0], self._r, hparams=config['hparams'])
+                    slice.hp(models[0], r, hparams=config['hparams'])
                 elif name == 'theta':
-                    slice.theta(models[0], self._r, tparams=config['tparams'])
+                    slice.theta(models[0], r, tparams=config['tparams'])
                 else:
                     assert False, "should not be reached"
 
