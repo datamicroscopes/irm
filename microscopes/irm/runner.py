@@ -235,4 +235,19 @@ class runner(object):
                     assert False, "should not be reached"
 
     def get_latent(self):
+        """Returns the current value of the underlying state object.
+        """
         return self._latent
+
+    @property
+    def expensive_state(self):
+        return self._views
+
+    @expensive_state.setter
+    def expensive_state(self, views):
+        self._views = views
+
+    def expensive_state_digest(self, h):
+        for view in self._views:
+            view.digest(h)
+        return h
