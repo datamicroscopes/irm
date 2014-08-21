@@ -2,6 +2,8 @@
 
 
 # python imports
+import copy
+
 from microscopes.common._rng import rng
 from microscopes.common.relation._dataview import abstract_dataview
 from microscopes.irm.definition import model_definition
@@ -24,6 +26,17 @@ cdef vector[const c_dataview *] get_crelations_raw(relations):
 
 
 cdef class state:
+    """The underlying state of an Infinite Relational Model.
+
+    You should not explicitly construct a state object.
+    Instead, use :func:`initialize`.
+
+    Notes
+    -----
+    This class is not meant to be sub-classed.
+
+    """
+
     def __cinit__(self, model_definition defn, **kwargs):
         self._defn = defn
 
@@ -241,6 +254,13 @@ cdef class state:
     def __reduce__(self):
         return (_reconstruct_state, (self._defn, self.serialize()))
 
+    def __copy__(self):
+        return state(self._defn, bytes=self.serialize())
+
+    def __deepcopy__(self, memo):
+        defn = copy.deepcopy(self._defn, memo)
+        return state(defn, bytes=self.serialize())
+
     # XXX(stephentu): expose more methods
 
 
@@ -257,10 +277,30 @@ def bind(state s, int domain, relations):
 
 
 def initialize(model_definition defn, data, rng r, **kwargs):
+    """Initialize state to a random, valid point in the state space
+
+    Parameters
+    ----------
+    defn : model definition
+    data : list of relation dataviews
+    rng : random state
+
+    """
     return state(defn=defn, data=data, r=r, **kwargs)
 
 
 def deserialize(model_definition defn, bytes):
+    """Restore a state object from a bytestring representation.
+
+    Note that a serialized representation of a state object does
+    not contain its own structural definition.
+
+    Parameters
+    ----------
+    defn : model definition
+    bytes : bytestring representation
+
+    """
     return state(defn=defn, bytes=bytes)
 
 
