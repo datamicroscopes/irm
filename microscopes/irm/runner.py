@@ -9,6 +9,7 @@ from microscopes.irm.model import state, bind
 from microscopes.kernels import gibbs, slice
 
 import itertools as it
+import copy
 
 
 def default_assign_kernel_config(defn):
@@ -143,7 +144,7 @@ class runner(object):
 
         self._defn = defn
         self._views = views
-        self._latent = latent
+        self._latent = copy.deepcopy(latent)
 
         self._kernel_config = []
         for kernel in kernel_config:
@@ -237,7 +238,7 @@ class runner(object):
     def get_latent(self):
         """Returns the current value of the underlying state object.
         """
-        return self._latent
+        return copy.deepcopy(self._latent)
 
     @property
     def expensive_state(self):
