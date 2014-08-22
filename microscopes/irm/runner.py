@@ -35,10 +35,18 @@ def default_assign_kernel_config(defn):
         lst = nonconj_inds if is_nonconj(m) else conj_inds
         lst.append(idx)
 
-    assign_kernel = ('assign', conj_inds)
+    nonconj_domains = set()
+    for idx in nonconj_inds:
+        for did in defn.relations()[idx]:
+            nonconj_domains.add(did)
+    conj_domains = [did for did in xrange(len(defn.domains()))
+                    if did not in nonconj_domains]
+    nonconj_domains = list(nonconj_domains)
+
+    assign_kernel = ('assign', conj_domains)
     assign_resample_kernel = (
         'assign_resample',
-        {idx: {'m': 10} for idx in nonconj_inds}
+        {idx: {'m': 10} for idx in nonconj_domains}
     )
     theta_kernel = (
         'theta',
@@ -46,9 +54,9 @@ def default_assign_kernel_config(defn):
     )
 
     kernels = []
-    if conj_inds:
+    if conj_domains:
         kernels.append(assign_kernel)
-    if nonconj_inds:
+    if nonconj_domains:
         kernels.append(assign_resample_kernel)
         kernels.append(theta_kernel)
     return kernels
@@ -73,7 +81,10 @@ def default_relation_hp_kernel_config(defn):
             continue
         # XXX(stephentu): we are arbitrarily picking w=0.1
         hparams[i] = {k: (fn, 0.1) for k, fn in hp.iteritems()}
-    return [('relation_hp', {'hparams': hparams})]
+    if not hparams:
+        return []
+    else:
+        return [('relation_hp', {'hparams': hparams})]
 
 
 def default_cluster_hp_kernel_config(defn):
@@ -94,7 +105,10 @@ def default_cluster_hp_kernel_config(defn):
             continue
         cparam = {k: (fn, 0.1) for k, fn in hp.iteritems()}
         config[i] = {'cparam': cparam}
-    return [('cluster_hp', config)]
+    if not config:
+        return []
+    else:
+        return [('cluster_hp', config)]
 
 
 def default_kernel_config(defn):
