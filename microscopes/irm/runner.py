@@ -84,7 +84,7 @@ def default_relation_hp_kernel_config(defn):
     if not hparams:
         return []
     else:
-        return [('relation_hp', {'hparams': hparams})]
+        return [('slice_relation_hp', {'hparams': hparams})]
 
 
 def default_cluster_hp_kernel_config(defn):
@@ -108,7 +108,7 @@ def default_cluster_hp_kernel_config(defn):
     if not config:
         return []
     else:
-        return [('cluster_hp', config)]
+        return [('slice_cluster_hp', config)]
 
 
 def default_kernel_config(defn):
@@ -193,14 +193,14 @@ class runner(object):
                     if v.keys() != ['m']:
                         raise ValueError("bad config found: {}".format(v))
 
-            elif name == 'cluster_hp':
+            elif name == 'slice_cluster_hp':
                 require_domain_keys(config)
                 for v in config.values():
                     validator.validate_dict_like(v)
                     if v.keys() != ['cparam']:
                         raise ValueError("bad config found: {}".format(v))
 
-            elif name == 'relation_hp':
+            elif name == 'slice_relation_hp':
                 if config.keys() != ['hparams']:
                     raise ValueError("bad config found: {}".format(config))
                 validator.validate_dict_like(config['hparams'])
@@ -239,10 +239,10 @@ class runner(object):
                 elif name == 'assign_resample':
                     for idx, v in config.iteritems():
                         gibbs.assign_resample(models[idx], v['m'], r)
-                elif name == 'cluster_hp':
+                elif name == 'slice_cluster_hp':
                     for idx, v in config.iteritems():
                         slice.hp(models[idx], r, cparam=v['cparam'])
-                elif name == 'relation_hp':
+                elif name == 'slice_relation_hp':
                     slice.hp(models[0], r, hparams=config['hparams'])
                 elif name == 'theta':
                     slice.theta(models[0], r, tparams=config['tparams'])
