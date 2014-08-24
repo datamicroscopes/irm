@@ -53,6 +53,16 @@ def test_runner_default_kernel_config_with_cluster():
     _test_runner_simple(defn, kc_fn)
 
 
+def test_runner_default_kernel_config_grid():
+    defn = model_definition([10, 10], [((0, 0), bb), ((0, 1), nich)])
+
+    def kc_fn(defn):
+        return list(it.chain(
+            runner.default_assign_kernel_config(defn),
+            runner.default_relation_hp_kernel_config(defn)))
+    _test_runner_simple(defn, kc_fn)
+
+
 def test_runner_default_kernel_config_convergence():
     domains = [4]
     defn = model_definition(domains, [((0, 0), bb)])

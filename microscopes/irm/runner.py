@@ -87,6 +87,59 @@ def default_relation_hp_kernel_config(defn):
         return [('slice_relation_hp', {'hparams': hparams})]
 
 
+def default_grid_relation_hp_kernel_config(defn):
+    """Creates a default kernel configuration for sampling the component
+    (relation) model hyper-parameters via gridded gibbs.
+
+    Parameters
+    ----------
+    defn : irm definition
+        The hyper-priors set in the definition are used to configure the
+        hyper-parameter sampling kernels.
+
+    """
+    config = {}
+
+    grid = enumerate(zip(defn.relation_models(), defn.relation_hyperpriors()))
+
+    for ri, (model, priors) in grid:
+        partials = copy.deepcopy(model.default_partial_hypergrid())
+        if not partials:
+            continue
+
+        evals = []
+        for update_descs, fn in priors.iteritems():
+            if not hasattr(update_descs, '__iter__'):
+                update_descs = [update_descs]
+            keyidxs = []
+            for update_desc in update_descs:
+                key, idx = _parse_descriptor(update_desc, default=None)
+                keyidxs.append((key, idx))
+
+            def func(raw, keyidxs):
+                s = 0.
+                for key, idx in keyidxs:
+                    if idx is None:
+                        s += raw[key]
+                    else:
+                        s += raw[key][idx]
+                return s
+            evals.append(lambda raw, keyidxs=keyidxs: func(raw, keyidxs))
+
+        def jointprior(raw, evals):
+            return np.array([f(raw) for f in evals]).sum()
+
+        config[ri] = {
+            'hpdf': lambda raw, evals=evals: jointprior(raw, evals),
+            'hgrid': partials,
+        }
+
+    if not config:
+        return []
+    else:
+        return [('grid_feature_hp', config)]
+
+
 def default_cluster_hp_kernel_config(defn):
     """Creates a default kernel configuration for sampling the clustering
     (Chinese Restaurant Process) model hyper-parameter. The default kernel is
@@ -200,6 +253,18 @@ class runner(object):
                     if v.keys() != ['cparam']:
                         raise ValueError("bad config found: {}".format(v))
 
+            elif name == 'grid_relation_hp':
+                require_relation_keys(config)
+                for ri, ps in config.iteritems():
+                    if set(ps.keys()) != set(('hpdf', 'hgrid',)):
+                        raise ValueError("bad config found: {}".format(ps))
+                    full = []
+                    for partial in ps['hgrid']:
+                        hp = latent.get_relation_hp(ri)
+                        hp.update(partial)
+                        full.append(hp)
+                    ps['hgrid'] = full
+
             elif name == 'slice_relation_hp':
                 if config.keys() != ['hparams']:
                     raise ValueError("bad config found: {}".format(config))
@@ -242,6 +307,8 @@ class runner(object):
                 elif name == 'slice_cluster_hp':
                     for idx, v in config.iteritems():
                         slice.hp(models[idx], r, cparam=v['cparam'])
+                elif name == 'grid_relation_hp':
+                    gibbs.hp(models[0], config, r)
                 elif name == 'slice_relation_hp':
                     slice.hp(models[0], r, hparams=config['hparams'])
                 elif name == 'theta':
