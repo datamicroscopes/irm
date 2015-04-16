@@ -1,31 +1,35 @@
 language: python
 python:
-  - '2.7'
+- '2.7'
 notifications:
   email: false
   slack:
-    secure: TuaCp9WmouC5fHUxPsYXEqaiAQv/55tFqIwN8OauMoRV9/vlS+CJuoyuC4RMFbbySztP4MxZNfgPxy0AIqBKnMYjMNabXPhX96c4KpH1E79Y2jdaE5qYq8ie3MQdFMv4xqNmY4HfwbqsX4VMYo1KtC1+cnRdZGHiEn1yWg/U2uo=
+    secure: MzBd5SJg1LF2tUTm38oRmPOyfV0rWS2DGUH1avp+rX9K9xlhuO5Vn0PePRkLZDmEvHPTe2HN5u+wLVb9wsEA3Ks3Rrq+o2OIvqr5SAbGAUWq+cu2VAvpy6hAIz/2vzr0O1D+jPrBTgzdAjvh5bMW/6dRskIgjbLXnREN57PbQt0=
 before_install:
-  - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-  - sudo apt-get update -qq
-  - sudo apt-get install -qq g++-4.8
-  - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
-  - chmod +x miniconda.sh
-  - ./miniconda.sh -b
-  - export PATH=/home/travis/miniconda/bin:$PATH
-  - conda update --yes conda
-  - sudo rm -rf /dev/shm
-  - sudo ln -s /run/shm /dev/shm
-  - conda create -n build --yes python=$TRAVIS_PYTHON_VERSION numpy scipy nose cython pip
-  - source activate build
-  - conda install --yes -c distributions distributions
-  - conda install --yes -c datamicroscopes eigen3
-  - export CC=gcc-4.8
-  - export CXX=g++-4.8
-  - printenv
-  - mkdir .travis
-  - (cd .travis && git clone https://github.com/datamicroscopes/common.git && cd common && make travis_install)
-  - (cd .travis && git clone https://github.com/datamicroscopes/kernels.git && cd kernels && make travis_install)
-  - (cd .travis && git clone https://github.com/datamicroscopes/mixturemodel.git && cd mixturemodel && make travis_install)
+- sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+- sudo apt-get update -qq
+- sudo apt-get install -qq g++-4.8
+- wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+- chmod +x miniconda.sh
+- "./miniconda.sh -b"
+- export PATH=/home/travis/miniconda/bin:$PATH
+- conda update --yes conda
+- sudo rm -rf /dev/shm
+- sudo ln -s /run/shm /dev/shm
+- conda create -n build --yes python=$TRAVIS_PYTHON_VERSION numpy scipy nose cython
+  pip
+- source activate build
+- conda install --yes -c distributions distributions
+- conda install --yes -c datamicroscopes eigen3
+- export CC=gcc-4.8
+- export CXX=g++-4.8
+- printenv
+- mkdir .travis
+- "(cd .travis && git clone https://github.com/datamicroscopes/common.git && cd common
+  && make travis_install)"
+- "(cd .travis && git clone https://github.com/datamicroscopes/kernels.git && cd kernels
+  && make travis_install)"
+- "(cd .travis && git clone https://github.com/datamicroscopes/mixturemodel.git &&
+  cd mixturemodel && make travis_install)"
 install: make travis_install
 script: make travis_script
