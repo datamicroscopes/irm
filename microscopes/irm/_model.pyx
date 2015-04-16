@@ -271,7 +271,7 @@ def bind(state s, int domain, relations):
     cdef vector[shared_ptr[c_dataview]] crelations = get_crelations(relations)
     px.reset(new c_model(s._thisptr, domain, crelations))
     cdef entity_based_state_object ret = entity_based_state_object(s.models())
-    ret.set_entity(px)
+    ret._thisptr = px
     ret._refs = relations
     return ret
 
