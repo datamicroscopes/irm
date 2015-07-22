@@ -63,6 +63,7 @@ def test_runner_default_kernel_config_grid():
     _test_runner_simple(defn, kc_fn)
 
 
+@attr('slow')
 def test_runner_default_kernel_config_convergence():
     domains = [4]
     defn = model_definition(domains, [((0, 0), bb)])
@@ -102,6 +103,7 @@ def test_runner_multiprocessing():
 
 
 @attr('uses_mp')
+@attr('slow')
 def test_runner_multiprocessing_convergence():
     domains = [4]
     defn = model_definition(domains, [((0, 0), bb)])

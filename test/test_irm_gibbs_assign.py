@@ -1,3 +1,5 @@
+from nose.plugins.attrib import attr
+
 from microscopes.irm.definition import model_definition as irm_definition
 from microscopes.irm.model import (
     initialize as irm_initialize,
@@ -216,6 +218,7 @@ def _test_convergence(domains,
         kl_places=places)
 
 
+@attr('slow')
 def test_one_binary():
     # 1 domain, 1 binary relation
     domains = [4]
@@ -232,6 +235,7 @@ def test_one_binary():
         domains, data, mk_relations(bb), mk_relations(bb), assign)
 
 
+@attr('slow')
 def test_one_binary_sparse():
     # 1 domain, 1 binary relation
     domains = [4]
@@ -248,6 +252,7 @@ def test_one_binary_sparse():
         domains, data, mk_relations(bb), mk_relations(bb), assign)
 
 
+@attr('slow')
 def test_one_binary_nonconj_kernel():
     # 1 domain, 1 binary relation
     domains = [4]
@@ -265,6 +270,7 @@ def test_one_binary_nonconj_kernel():
         domains, data, mk_relations(bb), mk_relations(bb), kernel)
 
 
+@attr('slow')
 def test_two_binary():
     # 1 domain, 2 binary relations
     domains = [4]
@@ -287,6 +293,7 @@ def test_two_binary():
         domains, data, mk_relations(bb), mk_relations(bb), assign)
 
 
+@attr('slow')
 def test_one_binary_one_ternary():
     # 1 domain, 1 binary, 1 ternary
     domains = [4]
@@ -311,6 +318,7 @@ def test_one_binary_one_ternary():
         domains, data, mk_relations(bb), mk_relations(bb), assign)
 
 
+@attr('slow')
 def test_one_binary_nonconj():
     # 1 domain, 1 binary relation, nonconj
     domains = [3]
@@ -335,6 +343,7 @@ def test_one_binary_nonconj():
         domains, data, mk_relations(bbnc), mk_relations(bb), kernel)
 
 
+@attr('slow')
 def test_two_domain_two_binary():
     # 1 domain, 2 binary relations
     domains = [3, 4]
